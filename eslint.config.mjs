@@ -1,16 +1,87 @@
-import { dirname } from "path";
-import { fileURLToPath } from "url";
-import { FlatCompat } from "@eslint/eslintrc";
+import js from "@eslint/js";
+import json from "@eslint/json";
+import css from "@eslint/css";
+import globals from "globals";
+import tseslint from "typescript-eslint";
+import pluginReact from "eslint-plugin-react";
+import pluginPrettier from "eslint-plugin-prettier/recommended";
+import configPrettier from "eslint-config-prettier/flat";
+import pluginUnused from "eslint-plugin-unused-imports";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+import { defineConfig, globalIgnores } from "eslint/config";
 
-const compat = new FlatCompat({
-  baseDirectory: __dirname,
-});
-
-const eslintConfig = [
-  ...compat.extends("next/core-web-vitals", "next/typescript"),
-];
-
-export default eslintConfig;
+export default defineConfig([
+  globalIgnores([
+    "**/.next/**",
+    "**/node_modules/**",
+    "**/public/**",
+    ".gitignore",
+    ".prettierignore",
+    ".stylelintignore",
+    "stylelintrc.json",
+    "package-lock.json",
+    "README.md",
+    "tsconfig.json",
+    "*.css",
+    "*.scss",
+    "lint-staged.config.js",
+  ]),
+  {
+    files: ["**/*.{js,mjs,cjs,ts,jsx,tsx}"],
+    plugins: { js },
+    extends: ["js/recommended"],
+  },
+  {
+    files: ["**/*.{js,mjs,cjs,ts,jsx,tsx}"],
+    languageOptions: { globals: globals.browser },
+  },
+  tseslint.configs.recommended,
+  {
+    files: ["**/*.{js,jsx,ts,tsx"],
+    ...pluginReact.configs.flat.recommended,
+    rules: {
+      "react/react-in-jsx-scope": "off",
+    },
+    settings: {
+      react: { version: "detect" },
+    },
+  },
+  {
+    files: ["**/*.{js,jsx, ts,tsx}"],
+    plugins: { "unused-imports": pluginUnused },
+    rules: {
+      "no-unused-vars": "off",
+      "@typescript-eslint/no-unused-vars": "off",
+      "unused-imports/no-unused-imports": "warn",
+      "unused-imports/no-unused-vars": [
+        "warn",
+        {
+          vars: "all",
+          varsIgnorePattern: "^_",
+          args: "after-used",
+          argsIgnorePattern: "^_",
+        },
+      ],
+    },
+  },
+  pluginPrettier,
+  configPrettier,
+  {
+    files: ["**/*.json"],
+    plugins: { json },
+    language: "json/json",
+    extends: ["json/recommended"],
+  },
+  {
+    files: ["**/*.jsonc"],
+    plugins: { json },
+    language: "json/jsonc",
+    extends: ["json/recommended"],
+  },
+  {
+    files: ["**/*.css"],
+    plugins: { css },
+    language: "css/css",
+    extends: ["css/recommended"],
+  },
+]);

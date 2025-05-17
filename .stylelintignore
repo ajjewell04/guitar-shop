@@ -1,0 +1,16 @@
+#Dependencies and build artifacts
+node_modules/
+.next/
+.vscode/
+
+#Assets
+public/
+
+#Lock files
+package-lock.json
+
+#Ignore files
+.prettierignore
+.stylelintignore
+.eslintrc.json
+.stylelintrc.json
