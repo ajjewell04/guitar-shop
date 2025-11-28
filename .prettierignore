@@ -1,19 +1,5 @@
-#Dependencies and build artifacts
 node_modules/
 .next/
 .vscode/
-next.config.ts
-README.md
-
-#Assets
 public/
-
-#Lock files
 package-lock.json
-
-#Ignore files
-.eslintignore
-.prettierignore
-.stylelintignore
-.eslintrc.json
-.stylelintrc.json

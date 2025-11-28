@@ -7,7 +7,6 @@ import pluginReact from "eslint-plugin-react";
 import pluginPrettier from "eslint-plugin-prettier/recommended";
 import configPrettier from "eslint-config-prettier/flat";
 import pluginUnused from "eslint-plugin-unused-imports";
-
 import { defineConfig, globalIgnores } from "eslint/config";
 
 export default defineConfig([
@@ -37,17 +36,13 @@ export default defineConfig([
   },
   tseslint.configs.recommended,
   {
-    files: ["**/*.{js,jsx,ts,tsx"],
+    files: ["**/*.{js,jsx,ts,tsx}"],
     ...pluginReact.configs.flat.recommended,
-    rules: {
-      "react/react-in-jsx-scope": "off",
-    },
-    settings: {
-      react: { version: "detect" },
-    },
+    rules: { "react/react-in-jsx-scope": "off" },
+    settings: { react: { version: "detect" } },
   },
   {
-    files: ["**/*.{js,jsx, ts,tsx}"],
+    files: ["**/*.{js,jsx,ts,tsx}"],
     plugins: { "unused-imports": pluginUnused },
     rules: {
       "no-unused-vars": "off",

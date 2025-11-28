@@ -1,3 +1,16 @@
+# Senior Project
+
+Base Next.js 15 + TypeScript starter with ESLint/Prettier/Stylelint, Husky + lint-staged, and GitHub Actions CI.
+
+## Scripts
+
+- `npm run dev` — start dev server (Turbopack)
+- `npm run format` — prettier write
+- `npm run lint` — eslint
+- `npm run lint:styles` — stylelint
+- `npm run check` — prettier check + stylelint + eslint
+- `npm run build` — check then next build
+
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 ## Getting Started
