@@ -5,7 +5,7 @@ export default function Home() {
   return (
     <div className={styles.page}>
       <main className={styles.main}>
-        <h1>Senior Project Starter</h1>
+        <h1>Senior Project Test</h1>
         <p>
           Edit <code>src/app/page.tsx</code> and{" "}
           <code>src/app/globals.css</code> to make it yours.
