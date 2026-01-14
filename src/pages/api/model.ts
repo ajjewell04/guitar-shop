@@ -9,14 +9,17 @@ export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse,
 ) {
+  if (process.env.NODE_ENV === "production") {
+    if (!process.env.DEMO_MODEL_URL) {
+      return res.status(500).json({ error: "Missing DEMO_MODEL_URL" });
+    }
+    return res.status(200).json({ url: process.env.DEMO_MODEL_URL });
+  }
+
   try {
     const { rows } = await pool.query(
       "SELECT s3_base_url FROM models ORDER BY created_at DESC LIMIT 1",
     );
-
-    if (process.env.NODE_ENV === "production") {
-      return res.status(200).json({ url: process.env.DEMO_MODEL_URL });
-    }
 
     if (!rows.length) {
       return res.status(404).json({ error: "No model found" });
