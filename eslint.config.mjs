@@ -78,14 +78,6 @@ export default defineConfig([
     language: "css/css",
     extends: ["css/recommended"],
   },
-  {
-    files: ["**/*.{js,jsx,ts,tsx}"],
-    ...pluginNext.configs.recommended,
-  },
-  {
-    files: ["**/*.{js,jsx,ts,tsx}"],
-    ...pluginNext.configs["core-web-vitals"],
-  },
   configPrettier,
   {
     plugins: {
