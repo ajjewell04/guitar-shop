@@ -4,7 +4,7 @@ import css from "@eslint/css";
 import globals from "globals";
 import tseslint from "typescript-eslint";
 import pluginReact from "eslint-plugin-react";
-import pluginPrettier from "eslint-plugin-prettier/recommended";
+import pluginPrettier from "eslint-plugin-prettier";
 import configPrettier from "eslint-config-prettier/flat";
 import pluginUnused from "eslint-plugin-unused-imports";
 import { defineConfig, globalIgnores } from "eslint/config";
@@ -59,8 +59,6 @@ export default defineConfig([
       ],
     },
   },
-  pluginPrettier,
-  configPrettier,
   {
     files: ["**/*.json"],
     plugins: { json },
@@ -79,4 +77,18 @@ export default defineConfig([
     language: "css/css",
     extends: ["css/recommended"],
   },
+  configPrettier,
+  {
+    plugins: {
+      prettier: pluginPrettier,
+    },
+    rules: {
+      "prettier/prettier": [
+        "error",
+        {
+          endOfLine: "auto",
+        },
+      ],
+    },
+  },  
 ]);
