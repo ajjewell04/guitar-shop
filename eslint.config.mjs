@@ -4,6 +4,7 @@ import css from "@eslint/css";
 import globals from "globals";
 import tseslint from "typescript-eslint";
 import pluginReact from "eslint-plugin-react";
+import pluginNext from "@next/eslint-plugin-next";
 import pluginPrettier from "eslint-plugin-prettier";
 import configPrettier from "eslint-config-prettier/flat";
 import pluginUnused from "eslint-plugin-unused-imports";
@@ -76,6 +77,14 @@ export default defineConfig([
     plugins: { css },
     language: "css/css",
     extends: ["css/recommended"],
+  },
+  {
+    files: ["**/*.{js,jsx,ts,tsx}"],
+    ...pluginNext.configs.recommended,
+  },
+  {
+    files: ["**/*.{js,jsx,ts,tsx}"],
+    ...pluginNext.configs["core-web-vitals"],
   },
   configPrettier,
   {

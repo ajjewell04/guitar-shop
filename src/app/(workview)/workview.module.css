@@ -37,13 +37,13 @@
   overflow: auto;
 }
 
-::-webkit-scrollbar {
+.contentView::-webkit-scrollbar {
   background-color: #1f1f1f;
   border-radius: 0.25rem;
   width: 0.5rem;
 }
 
-::-webkit-scrollbar-thumb {
+.contentView::-webkit-scrollbar-thumb {
   background-color: #f9f9f9;
   border-radius: 0.25rem;
 }
