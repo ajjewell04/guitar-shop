@@ -14,19 +14,23 @@
     "prepare": "husky"
   },
   "dependencies": {
-    "next": "15.3.8",
+    "next": "^15.5.9",
+    "pg": "^8.16.3",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "three": "^0.182.0"
   },
   "devDependencies": {
     "@eslint/css": "^0.8.1",
     "@eslint/eslintrc": "^3",
     "@eslint/js": "^9.26.0",
-    "@eslint/json": "^0.12.0",
+    "@eslint/json": "^0.14.0",
     "@next/eslint-plugin-next": "^15.3.2",
     "@types/node": "^20",
+    "@types/pg": "^8.16.0",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/three": "^0.182.0",
     "@typescript-eslint/eslint-plugin": "^8.32.1",
     "@typescript-eslint/parser": "^8.32.1",
     "eslint": "^9.27.0",

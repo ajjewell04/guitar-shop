@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import WorkView from "./workview";
-import Sidebar from "./sidebar";
+import WorkView from "./(workview)/workview";
+import Sidebar from "./(sidebar)/sidebar";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -28,8 +28,13 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${geistSans.variable} ${geistMono.variable}`}>
-        <div>
-          <Sidebar />
+        <div className="app-shell">
+          <div>
+            <header className="app-header">
+              <h1>Guitarshop</h1>
+            </header>
+            <Sidebar />
+          </div>
           <WorkView>{children}</WorkView>
         </div>
       </body>
