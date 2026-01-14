@@ -80,11 +80,11 @@ export default defineConfig([
   },
   {
     files: ["**/*.{js,jsx,ts,tsx}"],
-    ...pluginNext.configs.recommended,
+    ...pluginNext.flatConfig.recommended,
   },
   {
     files: ["**/*.{js,jsx,ts,tsx}"],
-    ...pluginNext.configs["core-web-vitals"],
+    ...pluginNext.flatConfig.coreWebVitals,
   },
   configPrettier,
   {

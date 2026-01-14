@@ -62,7 +62,7 @@ export default function ThreeDemo() {
         model.rotateZ(THREE.MathUtils.degToRad(90));
         scene.add(model);
 
-        camera.position.set(3, 0, size * 1);
+        camera.position.set(0, 0, size * 1);
         camera.near = size / 100;
         camera.far = size * 100;
         camera.updateProjectionMatrix();
