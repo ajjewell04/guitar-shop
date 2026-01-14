@@ -6,10 +6,10 @@
     "dev": "next dev --turbopack",
     "start": "next start",
     "format": "prettier --write .",
-    "lint": "next lint",
+    "lint": "eslint .",
     "lint:styles": "stylelint \"src/**/*.{css,scss}\"",
     "lint:styles:fix": "stylelint \"src/**/*.{css,scss}\" --fix",
-    "check": "prettier --check . && stylelint --allow-empty-input \"src/**/*.{css,scss}\" && next lint",
+    "check": "prettier --check . && stylelint --allow-empty-input \"src/**/*.{css,scss}\" && eslint .",
     "build": "npm run check && next build",
     "prepare": "husky"
   },
@@ -22,7 +22,6 @@
   },
   "devDependencies": {
     "@eslint/css": "^0.8.1",
-    "@eslint/eslintrc": "^3",
     "@eslint/js": "^9.26.0",
     "@eslint/json": "^0.14.0",
     "@next/eslint-plugin-next": "^15.3.2",
