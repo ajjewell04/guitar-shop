@@ -14,6 +14,10 @@ export default async function handler(
       "SELECT s3_base_url FROM models ORDER BY created_at DESC LIMIT 1",
     );
 
+    if (process.env.NODE_ENV === "production") {
+      return res.status(200).json({ url: process.env.DEMO_MODEL_URL });
+    }
+
     if (!rows.length) {
       return res.status(404).json({ error: "No model found" });
     }
