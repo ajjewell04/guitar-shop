@@ -1,5 +1,5 @@
-import ThreeDemo from "../pages/demo/page";
+import ProtectedPage from "./protected/page";
 
 export default function Home() {
-  return <ThreeDemo />;
+  return <ProtectedPage />;
 }
