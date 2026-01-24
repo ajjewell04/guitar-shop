@@ -1,29 +1,25 @@
-import styles from "./sidebar.module.css";
-
 export default function Sidebar() {
   return (
-    <aside className={styles.sidebar}>
-      <nav className={styles.mainNav}>
-        <ul>
+    <aside className="flex h-screen justify-between flex-col px-8 py-6">
+      <nav>
+        <ul className="flex flex-col items-center gap-6">
           <li>
             <a href="#">Home</a>
           </li>
-          <br />
           <li>
             <a href="#">My Library</a>
           </li>
-          <br />
           <li>
             <a href="#">Community Library</a>
           </li>
         </ul>
       </nav>
-      <section className={styles.projects}>
-        <div className={styles.projectsHeader}>
+      <section>
+        <div className="flex justify-between items-center mb-4">
           <h4>Projects</h4>
-          <button>+</button>
+          <button className="cursor-pointer text-xl rounded-lg p-2">+</button>
         </div>
-        <ul>
+        <ul className="flex flex-col items-center gap-4 overflow-y-auto">
           <li>
             <a href="#">Project 1</a>
           </li>
@@ -34,15 +30,12 @@ export default function Sidebar() {
             <a href="#">Project 3</a>
           </li>
           <li>
-            <a href="#">Project 4</a>
-          </li>
-          <li>
             <a href="#">See All</a>
           </li>
         </ul>
       </section>
-      <nav className={styles.mainNav}>
-        <ul>
+      <nav>
+        <ul className="flex flex-col items-center gap-6">
           <li>
             <a href="#">Help</a>
           </li>

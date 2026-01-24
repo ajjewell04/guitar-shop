@@ -28,10 +28,10 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${geistSans.variable} ${geistMono.variable}`}>
-        <div className="max-h-screen flex">
-          <div>
+        <div className="h-screen w-screen flex">
+          <div className="flex flex-col h-screen">
             <header className="flex flex-col m-8">
-              <h1>Guitarshop</h1>
+              <h1 className="self-center text-3xl">Guitarshop</h1>
             </header>
             <Sidebar />
           </div>
