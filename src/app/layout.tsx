@@ -28,9 +28,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${geistSans.variable} ${geistMono.variable}`}>
-        <div className="app-shell">
+        <div className="max-h-screen flex">
           <div>
-            <header className="app-header">
+            <header className="flex flex-col m-8">
               <h1>Guitarshop</h1>
             </header>
             <Sidebar />
