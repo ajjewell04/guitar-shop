@@ -1,6 +1,6 @@
 export default function Sidebar() {
   return (
-    <aside className="flex h-screen justify-between flex-col px-8 py-6">
+    <aside className="flex h-screen justify-between flex-col bg-foreground px-8 py-6">
       <nav>
         <ul className="flex flex-col items-center gap-6">
           <li>

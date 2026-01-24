@@ -1,18 +1,20 @@
-import styles from "./workview.module.css";
-
 export default function WorkView({ children }: { children: React.ReactNode }) {
   return (
-    <main className={styles.workview}>
-      <header className={styles.taskBar}>
-        <div className={styles.taskTitle}>Work View</div>
-        <input className={styles.searchBar} type="text" placeholder="Search" />
-        <div className={styles.taskActions}>
+    <main className="flex flex-1 flex-col m-h-0 bg-(--background2) rounded-lg m-2 p-4">
+      <header className="flex h-16 justify-between items-center">
+        <div className="text-xl font-bold">Workview</div>
+        <input
+          className="flex flex-1 min-w-xs max-w-3xl rounded-2xl p-2 m-2 bg-(--background)"
+          type="text"
+          placeholder=" Search"
+        />
+        <div className="flex gap-6">
           <button id="newProjBtn">+ New Project</button>
           <button id="accountBtn">■ Account</button>
         </div>
       </header>
       <hr />
-      <section className={styles.contentView}>{children}</section>
+      <section>{children}</section>
     </main>
   );
 }

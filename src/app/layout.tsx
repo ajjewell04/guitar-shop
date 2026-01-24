@@ -31,7 +31,7 @@ export default function RootLayout({
         <div className="h-screen w-screen flex">
           <div className="flex flex-col h-screen">
             <header className="flex flex-col m-8">
-              <h1 className="self-center text-3xl">Guitarshop</h1>
+              <h1 className="self-center text-3xl font-bold">Guitarshop</h1>
             </header>
             <Sidebar />
           </div>
