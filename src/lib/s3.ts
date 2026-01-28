@@ -7,7 +7,7 @@ const isVercel = process.env.VERCEL === "1";
 const credentials = isVercel
   ? awsCredentialsProvider({
       roleArn: process.env.AWS_ROLE_ARN!,
-      roleSessionName: process.env.AWS_ROLE_ARN!,
+      roleSessionName: `guitarshop-${process.env.VERCEL_ENV}-session`,
     })
   : fromIni({ profile: process.env.AWS_PROFILE });
 
