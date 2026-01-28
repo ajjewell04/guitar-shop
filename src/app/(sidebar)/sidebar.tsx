@@ -1,16 +1,18 @@
+import Link from "next/link";
+
 export default function Sidebar() {
   return (
     <aside className="flex h-screen justify-between flex-col bg-foreground px-8 py-6">
       <nav>
         <ul className="flex flex-col items-center gap-6">
           <li>
-            <a href="#">Home</a>
+            <Link href="/">Home</Link>
           </li>
           <li>
-            <a href="#">My Library</a>
+            <Link href="#">My Library</Link>
           </li>
           <li>
-            <a href="#">Community Library</a>
+            <Link href="#">Community Library</Link>
           </li>
         </ul>
       </nav>

@@ -3,22 +3,19 @@
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
-import styles from "./three-demo.module.css";
-
-type ModelInfo = {
-  url: string;
-};
 
 export default function ThreeDemo() {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [modelInfo, setModelInfo] = useState<ModelInfo | null>(null);
 
+  type ModelInfo = { url: string };
   useEffect(() => {
-    fetch("/api/model")
+    fetch("/api/models")
       .then((r) => r.json())
       .then((data) => {
-        console.log("modelInfo:", data);
-        setModelInfo(data);
+        const first = data?.models?.[0] ?? null;
+        console.log("models:", data?.models);
+        setModelInfo(first);
       })
       .catch(console.error);
   }, []);
@@ -103,5 +100,5 @@ export default function ThreeDemo() {
     };
   }, [modelInfo]);
 
-  return <div ref={containerRef} className={styles.demo} />;
+  return <div ref={containerRef} className="overflow-hidden" />;
 }
