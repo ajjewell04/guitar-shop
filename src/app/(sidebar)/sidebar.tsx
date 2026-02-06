@@ -1,6 +1,11 @@
 import Link from "next/link";
+import { Button } from "@/components/ui/button";
 
-export default function Sidebar() {
+type SidebarProps = {
+  onNewProject?: () => void;
+};
+
+export default function Sidebar({ onNewProject }: SidebarProps) {
   return (
     <aside className="flex h-screen justify-between flex-col bg-foreground px-8 py-6">
       <nav>
@@ -19,7 +24,13 @@ export default function Sidebar() {
       <section>
         <div className="flex justify-between items-center mb-4">
           <h4>Projects</h4>
-          <button className="cursor-pointer text-xl rounded-lg p-2">+</button>
+          <Button
+            id="newProjBtn"
+            className="cursor-pointer text-xl rounded-lg p-2"
+            onClick={onNewProject}
+          >
+            +
+          </Button>
         </div>
         <ul className="flex flex-col items-center gap-4 overflow-y-auto">
           <li>
