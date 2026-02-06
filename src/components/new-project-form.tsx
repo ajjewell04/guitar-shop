@@ -12,20 +12,61 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
-import { useState } from "react";
+import React, { useState } from "react";
 
 export function NewProjectForm({
   className,
   ...props
 }: React.ComponentPropsWithoutRef<"div">) {
   const [projectName, setProjectName] = useState("");
-  const [fileName, setFileName] = useState<string | null>(null);
   const [projectType, setProjectType] = useState<
     "blank" | "import" | "template" | null
   >(null);
   const [templateType, setTemplateType] = useState<
     "stratocaster" | "telecaster" | "les-paul" | null
   >(null);
+  const [file, setFile] = useState<File | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setError(null);
+    if (!projectName.trim()) {
+      setError("Project name is required.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      // TODO: map templateType/file to your real IDs
+      const body = {
+        name: projectName.trim(),
+        mode: projectType ?? "blank",
+        // templateId: templateType ? "uuid-for-selected-template" : undefined,
+        // importAssetId: file ? "uuid-for-uploaded-asset" : undefined,
+      };
+
+      const res = await fetch("/api/projects", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data?.error ?? "Create failed");
+      }
+
+      // success: data = { id, root_node_id }
+      console.log("Created project:", data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Create failed");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
   return (
     <div className={cn(className)} {...props}>
       <Card>
@@ -33,11 +74,16 @@ export function NewProjectForm({
           <CardTitle>New Project</CardTitle>
         </CardHeader>
         <CardContent>
-          <form>
+          <form onSubmit={onSubmit}>
             <div className="flex flex-col gap-4">
               <div className="flex flex-col gap-2">
                 <Label htmlFor="project-name">Project Name</Label>
-                <Input id="project-name" type="text"></Input>
+                <Input
+                  id="project-name"
+                  type="text"
+                  value={projectName}
+                  onChange={(e) => setProjectName(e.target.value)}
+                ></Input>
               </div>
               <CardDescription>Select a project type:</CardDescription>
               <div className="flex flex-wrap gap-2 justify-around">
@@ -69,7 +115,12 @@ export function NewProjectForm({
               {projectType === "import" && (
                 <div className="mt-4 flex gap-2">
                   <Label htmlFor="filename">File: </Label>
-                  <input id="filename" type="file" className="text-sm"></input>
+                  <input
+                    id="filename"
+                    type="file"
+                    className="text-sm"
+                    onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                  ></input>
                 </div>
               )}
               {projectType === "template" && (
@@ -139,11 +190,13 @@ export function NewProjectForm({
                   </Button>
                 </div>
               )}
+              {error && <p className="flex justify-center">{error}</p>}
               <Button
                 type="submit"
+                disabled={isSubmitting}
                 className="w-full border border-(--primary)"
               >
-                Submit
+                {isSubmitting ? "Creating..." : "Submit"}
               </Button>
             </div>
           </form>
