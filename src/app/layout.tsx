@@ -39,7 +39,9 @@ export default function RootLayout({
             </header>
             <Sidebar onNewProject={() => setIsNewProjectOpen(true)} />
           </div>
-          <WorkView>{children}</WorkView>
+          <WorkView onNewProject={() => setIsNewProjectOpen(true)}>
+            {children}
+          </WorkView>
         </div>
         {isNewProjectOpen && (
           <div
@@ -50,7 +52,7 @@ export default function RootLayout({
               className="w-full max-w-sm"
               onClick={(e) => e.stopPropagation()}
             >
-              <NewProjectForm />
+              <NewProjectForm onSuccess={() => setIsNewProjectOpen(false)} />
             </div>
           </div>
         )}

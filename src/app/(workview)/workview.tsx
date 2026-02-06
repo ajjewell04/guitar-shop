@@ -3,8 +3,13 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/client";
+import { Button } from "@/components/ui/button";
 
-export default function WorkView({ children }: { children: React.ReactNode }) {
+type WorkviewProps = { children: React.ReactNode } & {
+  onNewProject?: () => void;
+};
+
+export default function WorkView({ children, onNewProject }: WorkviewProps) {
   const [userEmail, setUserEmail] = useState<string | null>(null);
 
   useEffect(() => {
@@ -35,9 +40,20 @@ export default function WorkView({ children }: { children: React.ReactNode }) {
           placeholder=" Search"
         />
         <div className="flex gap-6">
-          <button id="newProjBtn">+ New Project</button>
+          <Button
+            id="newProjBtn"
+            className="cursor-pointer text-base rounded-lg p-2"
+            onClick={onNewProject}
+          >
+            + New Project
+          </Button>
           {userEmail ? (
-            <Link href="/protected">{userEmail}</Link>
+            <Link
+              className="cursor-pointer text-base rounded-lg p-2"
+              href="/protected"
+            >
+              {userEmail}
+            </Link>
           ) : (
             <Link href="/auth/login">Login</Link>
           )}

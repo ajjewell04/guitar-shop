@@ -1,11 +1,47 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { useEffect, useState } from "react";
+import { createClient } from "@/lib/client";
+
+type Project = {
+  id: string;
+  name: string;
+};
 
 type SidebarProps = {
   onNewProject?: () => void;
 };
 
 export default function Sidebar({ onNewProject }: SidebarProps) {
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let isActive = true;
+    const supabase = createClient();
+
+    const loadProjects = async () => {
+      const { data, error } = await supabase
+        .from("projects")
+        .select("id, name")
+        .order("created_on", { ascending: false });
+      if (!isActive) return;
+
+      if (error) {
+        setError(error.message);
+        setProjects([]);
+        return;
+      }
+
+      setProjects(data ?? []);
+    };
+
+    loadProjects();
+
+    return () => {
+      isActive = false;
+    };
+  }, []);
   return (
     <aside className="flex h-screen justify-between flex-col bg-foreground px-8 py-6">
       <nav>
@@ -33,17 +69,19 @@ export default function Sidebar({ onNewProject }: SidebarProps) {
           </Button>
         </div>
         <ul className="flex flex-col items-center gap-4 overflow-y-auto">
+          {error && (
+            <li className="text-sm text-red-500">Failed to load projects.</li>
+          )}
+          {!error && projects.length === 0 && (
+            <li className="text-sm text-muted-foreground">No projects yet.</li>
+          )}
+          {projects.map((project) => (
+            <li key={project.id}>
+              <Link href={`/projects/${project.id}`}>{project.name}</Link>
+            </li>
+          ))}
           <li>
-            <a href="#">Project 1</a>
-          </li>
-          <li>
-            <a href="#">Project 2</a>
-          </li>
-          <li>
-            <a href="#">Project 3</a>
-          </li>
-          <li>
-            <a href="#">See All</a>
+            <Link href="/">See all</Link>
           </li>
         </ul>
       </section>

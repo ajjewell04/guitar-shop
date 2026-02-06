@@ -13,11 +13,18 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
 import React, { useState } from "react";
+import { useRouter } from "next/navigation";
+
+type NewProjectFormProps = React.ComponentPropsWithoutRef<"div"> & {
+  onSuccess?: () => void;
+};
 
 export function NewProjectForm({
   className,
+  onSuccess,
   ...props
-}: React.ComponentPropsWithoutRef<"div">) {
+}: NewProjectFormProps) {
+  const router = useRouter();
   const [projectName, setProjectName] = useState("");
   const [projectType, setProjectType] = useState<
     "blank" | "import" | "template" | null
@@ -60,6 +67,8 @@ export function NewProjectForm({
 
       // success: data = { id, root_node_id }
       console.log("Created project:", data);
+      onSuccess?.();
+      router.push("/");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Create failed");
     } finally {
