@@ -61,15 +61,18 @@ export async function POST(req: Request) {
 
   const { project_id, root_node_id } = data;
 
+  if (body.mode === "template" && body.templateId) {
+    await supabase
+      .from("project_nodes")
+      .update({ asset_id: body.templateId })
+      .eq("id", root_node_id);
+  }
+
   if (body.mode === "import" && body.importAssetId) {
-    await supabase.from("project_nodes").insert({
-      project_id,
-      parent_id: root_node_id,
-      kind: "part",
-      name: "Imported Model",
-      asset_id: body.importAssetId,
-      sort_index: 10,
-    });
+    await supabase
+      .from("project_nodes")
+      .update({ asset_id: body.importAssetId })
+      .eq("id", root_node_id);
   }
 
   return NextResponse.json({ id: project_id, root_node_id }, { status: 201 });

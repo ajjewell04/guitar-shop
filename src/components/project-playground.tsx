@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, Suspense } from "react";
+import { useEffect, useMemo, useState, Suspense, useRef } from "react";
 import { Canvas } from "@react-three/fiber";
 import {
   Bounds,
@@ -8,11 +8,15 @@ import {
   Grid,
   Html,
   OrbitControls,
+  TransformControls,
   useGLTF,
   useProgress,
 } from "@react-three/drei";
 import * as THREE from "three";
 import type { GLTF } from "three/examples/jsm/loaders/GLTFLoader.js";
+import { useLoader } from "@react-three/fiber";
+import { MTLLoader } from "three/examples/jsm/loaders/MTLLoader.js";
+import { OBJLoader } from "three/examples/jsm/loaders/OBJLoader.js";
 import { cn } from "@/lib/utils";
 
 type ProjectPlaygroundProps = {
@@ -26,9 +30,23 @@ type ModelAsset = {
   url: string;
 };
 
+type RootNode = {
+  id: string;
+  name?: string;
+};
+
 type ModelsResponse = {
   url?: string;
+  objUrl?: string;
+  mtlUrl?: string;
   error?: string;
+  root_node?: {
+    id: string;
+    name?: string | null;
+    transforms?: {
+      position?: { x: number; y: number; z: number };
+    } | null;
+  } | null;
 };
 
 function LoadingIndicator() {
@@ -38,6 +56,15 @@ function LoadingIndicator() {
       Loading {Math.round(progress)}%
     </Html>
   );
+}
+
+function ObjMtlView({ objUrl, mtlUrl }: { objUrl: string; mtlUrl: string }) {
+  const materials = useLoader(MTLLoader, mtlUrl);
+  const obj = useLoader(OBJLoader, objUrl, (loader) => {
+    materials.preload();
+    loader.setMaterials(materials);
+  });
+  return <primitive object={obj} />;
 }
 
 function ModelAssetView({ url }: { url: string }) {
@@ -59,8 +86,50 @@ export default function ProjectPlayground({
   className,
 }: ProjectPlaygroundProps) {
   const [model, setModel] = useState<ModelAsset | null>(null);
+  const [objUrls, setObjUrls] = useState<{ obj: string; mtl: string } | null>(
+    null,
+  );
+  const [orbitEnabled, setOrbitEnabled] = useState(true);
+  const modelGroupRef = useRef<THREE.Group>(new THREE.Group());
+  const transformControlsRef = useRef(null);
   const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const saveTimerRef = useRef<number | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  function scheduleSave() {
+    if (!modelGroupRef.current || !model?.id) return;
+    if (saveTimerRef.current) {
+      window.clearTimeout(saveTimerRef.current);
+    }
+
+    saveTimerRef.current = window.setTimeout(async () => {
+      const pos = modelGroupRef.current!.position;
+      setIsSaving(true);
+      setSaveError(null);
+
+      try {
+        const res = await fetch("/api/models", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            nodeId: model.id,
+            position: { x: pos.x, y: pos.y, z: pos.z },
+          }),
+        });
+
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data?.error ?? "Save failed.");
+        }
+      } catch (err) {
+        setSaveError(err instanceof Error ? err.message : "Save failed.");
+      } finally {
+        setIsSaving(false);
+      }
+    }, 400); // 300–500ms is common
+  }
 
   useEffect(() => {
     const controller = new AbortController();
@@ -77,8 +146,29 @@ export default function ProjectPlayground({
           throw new Error(data?.error ?? "Failed to load models.");
         }
         setModel(
-          data.url ? { id: "root", name: "Root model", url: data.url } : null,
+          data.url && data.root_node?.id
+            ? {
+                id: data.root_node.id,
+                name: data.root_node.name ?? "Root model",
+                url: data.url,
+              }
+            : null,
         );
+
+        setObjUrls(
+          data.objUrl && data.mtlUrl
+            ? { obj: data.objUrl, mtl: data.mtlUrl }
+            : null,
+        );
+
+        const savedPosition = data.root_node?.transforms?.position;
+        if (savedPosition && modelGroupRef.current) {
+          modelGroupRef.current.position.set(
+            savedPosition.x ?? 0,
+            savedPosition.y ?? 0,
+            savedPosition.z ?? 0,
+          );
+        }
         setStatus("idle");
       } catch (err) {
         if (controller.signal.aborted) return;
@@ -131,17 +221,35 @@ export default function ProjectPlayground({
             position={[0, -0.5, 0]}
           />
           <Suspense fallback={<LoadingIndicator />}>
-            {model?.url ? (
-              <Bounds fit clip observe margin={1.2}>
-                <Center>
-                  <ModelAssetView url={model.url} />
-                </Center>
-              </Bounds>
-            ) : (
-              <PlaceholderModel />
-            )}
+            <TransformControls
+              ref={transformControlsRef}
+              object={modelGroupRef}
+              mode="translate"
+              onMouseDown={() => setOrbitEnabled(false)}
+              onMouseUp={() => setOrbitEnabled(true)}
+              onObjectChange={() => scheduleSave()}
+            >
+              <group ref={modelGroupRef}>
+                {objUrls ? (
+                  <ObjMtlView objUrl={objUrls.obj} mtlUrl={objUrls.mtl} />
+                ) : model?.url ? (
+                  <Bounds fit clip observe margin={1.2}>
+                    <Center>
+                      <ModelAssetView url={model.url} />
+                    </Center>
+                  </Bounds>
+                ) : (
+                  <PlaceholderModel />
+                )}
+              </group>
+            </TransformControls>
           </Suspense>
-          <OrbitControls makeDefault enableDamping dampingFactor={0.08} />
+          <OrbitControls
+            makeDefault
+            enabled={orbitEnabled}
+            enableDamping
+            dampingFactor={0.08}
+          />
         </Canvas>
       </div>
     </div>

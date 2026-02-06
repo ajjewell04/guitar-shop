@@ -39,20 +39,100 @@ export function NewProjectForm({
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
+
     if (!projectName.trim()) {
       setError("Project name is required.");
       return;
     }
 
+    if (!projectType) {
+      setError("Select a project type.");
+      return;
+    }
+
     setIsSubmitting(true);
     try {
-      // TODO: map templateType/file to your real IDs
-      const body = {
+      const body: {
+        name: string;
+        mode: "blank" | "import" | "template";
+        templateId?: string;
+        importAssetId?: string;
+      } = {
         name: projectName.trim(),
-        mode: projectType ?? "blank",
-        // templateId: templateType ? "uuid-for-selected-template" : undefined,
-        // importAssetId: file ? "uuid-for-uploaded-asset" : undefined,
+        mode: projectType,
       };
+
+      if (projectType === "template") {
+        if (!templateType) {
+          setError("Select a template.");
+          setIsSubmitting(false);
+          return;
+        }
+
+        const templateRes = await fetch("/api/models", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ templateKey: templateType }),
+        });
+
+        const templateData = await templateRes.json();
+        if (!templateRes.ok) {
+          throw new Error(
+            templateData?.error ?? "Template asset create failed",
+          );
+        }
+
+        body.templateId = templateData.assetId;
+      }
+
+      if (projectType === "import") {
+        if (!file) {
+          setError("Please select a file to import.");
+          setIsSubmitting(false);
+          return;
+        }
+        const presignRes = await fetch("/api/models/import/presign", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            filename: file.name,
+            contentType: file.type,
+          }),
+        });
+
+        const presignData = await presignRes.json();
+        if (!presignRes.ok) {
+          throw new Error(presignData?.error ?? "Presign failed");
+        }
+
+        const putRes = await fetch(presignData.url, {
+          method: "PUT",
+          headers: { "Content-Type": presignData.contentType },
+          body: file,
+        });
+
+        if (!putRes.ok) {
+          throw new Error("S3 upload failed");
+        }
+
+        const finalizeRes = await fetch("/api/models/import", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            objectKey: presignData.objectKey,
+            filename: file.name,
+            contentType: presignData.contentType,
+            bytes: file.size,
+          }),
+        });
+
+        const finalizeData = await finalizeRes.json();
+        if (!finalizeRes.ok) {
+          throw new Error(finalizeData?.error ?? "Finalize import failed");
+        }
+
+        body.importAssetId = finalizeData.assetId;
+      }
 
       const res = await fetch("/api/projects", {
         method: "POST",
@@ -65,8 +145,6 @@ export function NewProjectForm({
         throw new Error(data?.error ?? "Create failed");
       }
 
-      // success: data = { id, root_node_id }
-      console.log("Created project:", data);
       onSuccess?.();
       router.push("/");
     } catch (err) {
@@ -92,7 +170,7 @@ export function NewProjectForm({
                   type="text"
                   value={projectName}
                   onChange={(e) => setProjectName(e.target.value)}
-                ></Input>
+                />
               </div>
               <CardDescription>Select a project type:</CardDescription>
               <div className="flex flex-wrap gap-2 justify-around">
@@ -118,9 +196,6 @@ export function NewProjectForm({
                   Template
                 </Button>
               </div>
-              {projectType === "blank" && (
-                <div className="mt-4 flex flex-col gap-2"></div>
-              )}
               {projectType === "import" && (
                 <div className="mt-4 flex gap-2">
                   <Label htmlFor="filename">File: </Label>
@@ -129,7 +204,7 @@ export function NewProjectForm({
                     type="file"
                     className="text-sm"
                     onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-                  ></input>
+                  />
                 </div>
               )}
               {projectType === "template" && (
