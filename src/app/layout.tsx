@@ -3,8 +3,8 @@
 import { useState } from "react";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import WorkView from "./(workview)/workview";
-import Sidebar from "./(sidebar)/sidebar";
+import WorkView from "../components/workview";
+import Sidebar from "../components/sidebar";
 import { NewProjectForm } from "@/components/new-project-form";
 
 const geistSans = Geist({

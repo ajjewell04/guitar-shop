@@ -128,7 +128,7 @@ export default function ProjectPlayground({
       } finally {
         setIsSaving(false);
       }
-    }, 400); // 300–500ms is common
+    }, 400);
   }
 
   useEffect(() => {

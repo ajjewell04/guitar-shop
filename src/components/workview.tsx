@@ -50,7 +50,7 @@ export default function WorkView({ children, onNewProject }: WorkviewProps) {
           {userEmail ? (
             <Link
               className="cursor-pointer text-base rounded-lg p-2"
-              href="/protected"
+              href="/auth/protected"
             >
               {userEmail}
             </Link>
