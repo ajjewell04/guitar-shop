@@ -4,13 +4,51 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/client";
 import { Button } from "@/components/ui/button";
+import { usePathname } from "next/navigation";
 
 type WorkviewProps = { children: React.ReactNode } & {
   onNewProject?: () => void;
 };
 
+type NavConfig = {
+  title: string;
+  showSearch: boolean;
+  showFilters: boolean;
+};
+
+function getNavConfig(pathname: string): NavConfig {
+  if (pathname === "/") {
+    return {
+      title: "Projects",
+      showSearch: true,
+      showFilters: false,
+    };
+  }
+  if (pathname === "/library") {
+    return {
+      title: "Library",
+      showSearch: true,
+      showFilters: true,
+    };
+  }
+  if (pathname.startsWith("/projects/")) {
+    return {
+      title: "Project Playground",
+      showSearch: false,
+      showFilters: false,
+    };
+  }
+  return {
+    title: "Workview",
+    showSearch: false,
+    showFilters: false,
+  };
+}
+
 export default function WorkView({ children, onNewProject }: WorkviewProps) {
   const [userEmail, setUserEmail] = useState<string | null>(null);
+  const pathname = usePathname();
+  const navConfig = getNavConfig(pathname);
 
   useEffect(() => {
     const fetchUser = createClient();
@@ -33,12 +71,14 @@ export default function WorkView({ children, onNewProject }: WorkviewProps) {
   return (
     <main className="flex flex-1 flex-col m-h-0 bg-(--background2) rounded-lg m-2 p-4">
       <header className="flex h-16 justify-between items-center">
-        <div className="text-xl font-bold">Workview</div>
-        <input
-          className="flex flex-1 min-w-xs max-w-3xl rounded-2xl p-2 m-2 bg-(--background)"
-          type="text"
-          placeholder=" Search"
-        />
+        <div className="text-xl font-bold">{navConfig.title}</div>
+        {navConfig.showSearch && (
+          <input
+            className="flex flex-1 min-w-xs max-w-3xl rounded-2xl p-2 m-2 bg-(--background)"
+            type="text"
+            placeholder=" Search"
+          />
+        )}
         <div className="flex gap-6">
           <Button
             id="newProjBtn"
@@ -59,6 +99,11 @@ export default function WorkView({ children, onNewProject }: WorkviewProps) {
           )}
         </div>
       </header>
+      {navConfig.showFilters && (
+        <header className="flex h-8 justify-between items-center">
+          <div></div>
+        </header>
+      )}
       <hr />
       <section>{children}</section>
     </main>

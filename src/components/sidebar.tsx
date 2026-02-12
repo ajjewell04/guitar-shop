@@ -53,7 +53,7 @@ export default function Sidebar({ onNewProject }: SidebarProps) {
             <Link href="#">My Library</Link>
           </li>
           <li>
-            <Link href="#">Community Library</Link>
+            <Link href="/library">Community Library</Link>
           </li>
         </ul>
       </nav>
