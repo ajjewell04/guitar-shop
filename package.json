@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbopack",
+    "dev": "next dev --turbopack --hostname 192.168.1.112 --port 3000",
     "start": "next start",
     "format": "prettier --write .",
     "lint": "eslint .",

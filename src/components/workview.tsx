@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/client";
 import { Button } from "@/components/ui/button";
 import { usePathname } from "next/navigation";
-import Image from "next/image";
+import { PartFilters } from "@/components/ui/filters";
 
 type WorkviewProps = { children: React.ReactNode } & {
   onNewProject?: () => void;
@@ -70,7 +70,7 @@ export default function WorkView({ children, onNewProject }: WorkviewProps) {
   }, []);
 
   return (
-    <main className="flex flex-1 flex-col m-h-0 bg-(--background2) rounded-lg m-2 p-4">
+    <main className="flex flex-1 flex-col m-h-0 bg-(--background2) rounded-lg m-2 px-2">
       <header className="flex h-16 justify-between items-center">
         <div className="text-xl font-bold">{navConfig.title}</div>
         {navConfig.showSearch && (
@@ -101,62 +101,8 @@ export default function WorkView({ children, onNewProject }: WorkviewProps) {
         </div>
       </header>
       {navConfig.showFilters && (
-        <header className="flex h-10 justify-between items-center">
-          <div className="flex flex-row gap-6 ">
-            <button>All</button>
-            <button className="flex items-center">
-              <Image
-                src="/icons/body.png"
-                alt="Bodies"
-                width={48}
-                height={48}
-                className="invert rotate-315"
-              />
-              Bodys
-            </button>
-            <button className="flex items-center">
-              <Image
-                src="/icons/neck.png"
-                alt="Neck"
-                width={48}
-                height={48}
-                className="invert rotate-315"
-              />
-              Necks
-            </button>
-            <button className="flex items-center">
-              <Image
-                src="/icons/headstock.png"
-                alt="Headstock"
-                width={48}
-                height={48}
-                className="invert rotate-245"
-              />
-              Headstocks
-            </button>
-            <button className="flex items-center">
-              <Image
-                src="/icons/bridge.png"
-                alt="Bridge"
-                width={48}
-                height={48}
-                className="invert rotate-315"
-              />
-              Bridges
-            </button>
-            <button className="flex items-center">
-              <Image
-                src="/icons/tuningmachine.png"
-                alt="Tuning Machine"
-                width={48}
-                height={48}
-                className="invert rotate-315"
-              />
-              Tuning Machines
-            </button>
-            <button></button>
-            <button></button>
-          </div>
+        <header className="flex h-auto justify-between items-start py-2">
+          <PartFilters />
         </header>
       )}
       <hr />
