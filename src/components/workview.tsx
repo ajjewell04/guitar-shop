@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/client";
 import { Button } from "@/components/ui/button";
 import { usePathname } from "next/navigation";
+import Image from "next/image";
 
 type WorkviewProps = { children: React.ReactNode } & {
   onNewProject?: () => void;
@@ -26,7 +27,7 @@ function getNavConfig(pathname: string): NavConfig {
   }
   if (pathname === "/library") {
     return {
-      title: "Library",
+      title: "Community Library",
       showSearch: true,
       showFilters: true,
     };
@@ -100,8 +101,62 @@ export default function WorkView({ children, onNewProject }: WorkviewProps) {
         </div>
       </header>
       {navConfig.showFilters && (
-        <header className="flex h-8 justify-between items-center">
-          <div></div>
+        <header className="flex h-10 justify-between items-center">
+          <div className="flex flex-row gap-6 ">
+            <button>All</button>
+            <button className="flex items-center">
+              <Image
+                src="/icons/body.png"
+                alt="Bodies"
+                width={48}
+                height={48}
+                className="invert rotate-315"
+              />
+              Bodys
+            </button>
+            <button className="flex items-center">
+              <Image
+                src="/icons/neck.png"
+                alt="Neck"
+                width={48}
+                height={48}
+                className="invert rotate-315"
+              />
+              Necks
+            </button>
+            <button className="flex items-center">
+              <Image
+                src="/icons/headstock.png"
+                alt="Headstock"
+                width={48}
+                height={48}
+                className="invert rotate-245"
+              />
+              Headstocks
+            </button>
+            <button className="flex items-center">
+              <Image
+                src="/icons/bridge.png"
+                alt="Bridge"
+                width={48}
+                height={48}
+                className="invert rotate-315"
+              />
+              Bridges
+            </button>
+            <button className="flex items-center">
+              <Image
+                src="/icons/tuningmachine.png"
+                alt="Tuning Machine"
+                width={48}
+                height={48}
+                className="invert rotate-315"
+              />
+              Tuning Machines
+            </button>
+            <button></button>
+            <button></button>
+          </div>
         </header>
       )}
       <hr />

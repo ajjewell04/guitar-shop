@@ -145,8 +145,15 @@ export function NewProjectForm({
         throw new Error(data?.error ?? "Create failed");
       }
 
+      const newProjectId = data?.id;
+      if (!newProjectId) {
+        throw new Error("Project created, but no ID returned");
+      }
+
       onSuccess?.();
-      router.push("/");
+      window.dispatchEvent(new Event("projects-changed"));
+      router.push(`/projects/${newProjectId}`);
+      router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Create failed");
     } finally {

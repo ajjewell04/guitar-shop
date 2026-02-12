@@ -30,7 +30,7 @@ export async function GET(req: Request) {
         owner_id,
         root_node:project_nodes!projects_root_node_id_fkey (
           id,
-          asset:assets!project_nodea_asset_id_fkey (
+          asset:assets!project_nodes_asset_id_fkey (
             id,
             asset_file:asset_files!asset_asset_file_id_fkey (
               id,

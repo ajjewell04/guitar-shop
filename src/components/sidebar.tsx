@@ -38,10 +38,21 @@ export default function Sidebar({ onNewProject }: SidebarProps) {
 
     loadProjects();
 
+    const onProjectsChanged = () => {
+      loadProjects();
+    };
+
+    window.addEventListener("projects-changed", onProjectsChanged);
+
     return () => {
       isActive = false;
+      window.removeEventListener("projects-changed", onProjectsChanged);
     };
   }, []);
+
+  const shownProjects = projects.slice(0, 5);
+  const hasMoreProjects = projects.length > shownProjects.length;
+
   return (
     <aside className="flex h-screen justify-between flex-col bg-foreground px-8 py-6">
       <nav>
@@ -75,14 +86,16 @@ export default function Sidebar({ onNewProject }: SidebarProps) {
           {!error && projects.length === 0 && (
             <li className="text-sm text-muted-foreground">No projects yet.</li>
           )}
-          {projects.map((project) => (
+          {shownProjects.map((project) => (
             <li key={project.id}>
               <Link href={`/projects/${project.id}`}>{project.name}</Link>
             </li>
           ))}
-          <li>
-            <Link href="/">See all</Link>
-          </li>
+          {hasMoreProjects && (
+            <li>
+              <Link href="/">See all</Link>
+            </li>
+          )}
         </ul>
       </section>
       <nav>

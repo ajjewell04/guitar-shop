@@ -54,6 +54,7 @@ export default function Home({
     }
 
     await loadProjects();
+    window.dispatchEvent(new Event("projects-changed"));
   };
 
   return (

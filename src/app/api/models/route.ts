@@ -63,12 +63,12 @@ export async function GET(req: Request) {
           name,
           transforms,
           asset_id,
-          asset:assets!project_nodea_asset_id_fkey (
+          asset:assets!project_nodes_asset_id_fkey (
             id,
             name,
             type,
             asset_file_id,
-            asset_file:asset_files!asset_asset_file_id_fkey (
+            asset_file:asset_files!assets_asset_file_id_fkey (
               id,
               bucket,
               object_key,
