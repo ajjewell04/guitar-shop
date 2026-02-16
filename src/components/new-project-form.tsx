@@ -8,12 +8,35 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
+
+const PART_TYPES = [
+  "body",
+  "neck",
+  "headstock",
+  "bridge",
+  "tuning_machine",
+  "pickup",
+  "pickguard",
+  "knob",
+  "switch",
+  "strap_button",
+  "output_jack",
+  "miscellaneous",
+] as const;
+type PartType = (typeof PART_TYPES)[number];
 
 type NewProjectFormProps = React.ComponentPropsWithoutRef<"div"> & {
   onSuccess?: () => void;
@@ -35,6 +58,15 @@ export function NewProjectForm({
   const [file, setFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
+  const [assetName, setAssetName] = useState("");
+  const [partType, setPartType] = useState<PartType | "">("");
+
+  async function onImportFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    setError(null);
+    const selectedFile = e.target.files?.[0] ?? null;
+    setFile(selectedFile);
+  }
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -91,6 +123,19 @@ export function NewProjectForm({
           setIsSubmitting(false);
           return;
         }
+
+        if (!assetName.trim()) {
+          setError("Asset name is required for import.");
+          setIsSubmitting(false);
+          return;
+        }
+
+        if (!partType) {
+          setError("Part type is required for import.");
+          setIsSubmitting(false);
+          return;
+        }
+
         const presignRes = await fetch("/api/models/import/presign", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -123,6 +168,8 @@ export function NewProjectForm({
             filename: file.name,
             contentType: presignData.contentType,
             bytes: file.size,
+            assetName: assetName.trim(),
+            partType,
           }),
         });
 
@@ -191,27 +238,79 @@ export function NewProjectForm({
                 <Button
                   type="button"
                   variant={projectType === "import" ? "secondary" : "outline"}
-                  onClick={() => setProjectType("import")}
+                  onClick={() => {
+                    setProjectType("import");
+                    setIsImporting(false);
+                  }}
                 >
                   Import
                 </Button>
                 <Button
                   type="button"
                   variant={projectType === "template" ? "secondary" : "outline"}
-                  onClick={() => setProjectType("template")}
+                  onClick={() => {
+                    setProjectType("template");
+                    setIsImporting(false);
+                  }}
                 >
                   Template
                 </Button>
               </div>
               {projectType === "import" && (
-                <div className="mt-4 flex gap-2">
-                  <Label htmlFor="filename">File: </Label>
-                  <input
-                    id="filename"
-                    type="file"
-                    className="text-sm"
-                    onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-                  />
+                <div>
+                  <div className="mt-4 flex gap-2">
+                    <Label htmlFor="filename"></Label>
+                    <input
+                      id="filename"
+                      type="file"
+                      className="text-sm"
+                      onChange={(e) => {
+                        setIsImporting(true);
+                        onImportFileChange(e);
+                      }}
+                    />
+                  </div>
+                  <br />
+                  {isImporting && (
+                    <div className="flex flex-row gap-4">
+                      <div className="flex-1 min-w-0">
+                        <Label htmlFor="asset-name">Asset Name</Label>
+                        <Input
+                          id="asset-name"
+                          type="text"
+                          value={assetName}
+                          onChange={(e) => setAssetName(e.target.value)}
+                        />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <Label htmlFor="part-type">Part Type</Label>
+                        <Select
+                          value={partType}
+                          onValueChange={(value) =>
+                            setPartType(value as PartType)
+                          }
+                        >
+                          <SelectTrigger
+                            id="part-type"
+                            className="w-full bg-(--background) text-(--foreground) border-(--foreground)"
+                          >
+                            <SelectValue placeholder="Select part type" />
+                          </SelectTrigger>
+                          <SelectContent className="bg-(--background) text-(--foreground) border-(--foreground)">
+                            {PART_TYPES.map((type) => (
+                              <SelectItem
+                                key={type}
+                                value={type}
+                                className="focus:bg-(--primary) focus:text-(--foreground)"
+                              >
+                                {type.replace(/_/g, " ")}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
               {projectType === "template" && (

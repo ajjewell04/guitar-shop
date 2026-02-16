@@ -7,7 +7,7 @@ function PartFilters() {
   const [activeSort, setActiveSort] = useState<"asc" | "desc">("asc");
 
   return (
-    <div className="flex flex-row gap-3 flex-wrap">
+    <div className="flex flex-row gap-2 flex-wrap">
       <Button
         className="flex items-center"
         onClick={() => setActiveFilter(null)}

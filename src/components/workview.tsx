@@ -78,6 +78,9 @@ export default function WorkView({ children, onNewProject }: WorkviewProps) {
             className="flex flex-1 min-w-xs max-w-3xl rounded-2xl p-2 m-2 bg-(--background)"
             type="text"
             placeholder=" Search"
+            onChange={(e) =>
+              console.log("Search input changed:", e.target.value)
+            }
           />
         )}
         <div className="flex gap-6">
@@ -101,7 +104,7 @@ export default function WorkView({ children, onNewProject }: WorkviewProps) {
         </div>
       </header>
       {navConfig.showFilters && (
-        <header className="flex h-auto justify-between items-start py-2">
+        <header className="flex h-auto justify-evenly items-start py-2">
           <PartFilters />
         </header>
       )}

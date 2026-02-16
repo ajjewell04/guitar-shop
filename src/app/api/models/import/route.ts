@@ -18,6 +18,20 @@ export async function POST(req: Request) {
     filename?: string;
     contentType?: string;
     bytes?: number;
+    assetName?: string;
+    partType?:
+      | "body"
+      | "neck"
+      | "headstock"
+      | "bridge"
+      | "tuning_machine"
+      | "pickup"
+      | "pickguard"
+      | "knob"
+      | "switch"
+      | "strap_button"
+      | "output_jack"
+      | "miscellaneous";
   };
 
   if (!body.objectKey || !body.filename) {
@@ -27,11 +41,19 @@ export async function POST(req: Request) {
     );
   }
 
+  if (!body.assetName?.trim() || !body.partType) {
+    return NextResponse.json(
+      { error: "Missing assetName/partType" },
+      { status: 400 },
+    );
+  }
+
   const { data: asset, error: assetError } = await supabase
     .from("assets")
     .insert({
-      name: body.filename,
+      name: body.assetName.trim(),
       type: "model",
+      part_type: body.partType,
       scope: "project",
       owner_id: user.id,
       meta: { source: "import" },
