@@ -51,6 +51,8 @@ export async function GET(req: Request) {
   const ownerId = searchParams.get("ownerId");
 
   if (view === "library") {
+    const isOwnLibrary = !!ownerId && ownerId === user.id;
+
     let query = supabase
       .from("assets")
       .select(
@@ -75,11 +77,14 @@ export async function GET(req: Request) {
           )
         `,
       )
-      .eq("upload_status", "approved")
       .order("upload_date", { ascending: false });
 
     if (ownerId) {
       query = query.eq("owner_id", ownerId);
+    }
+
+    if (!isOwnLibrary) {
+      query = query.eq("upload_status", "approved");
     }
 
     const { data: assets, error } = await query;

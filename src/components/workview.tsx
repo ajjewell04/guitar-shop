@@ -78,20 +78,22 @@ export default function WorkView({ children, onNewProject }: WorkviewProps) {
   const searchParams = useSearchParams();
 
   const isLibrary = pathname?.startsWith("/library");
+  const isHome = pathname === "/";
   const query = searchParams.get("q") ?? "";
   const part = (searchParams.get("part") as PartType | null) ?? "all";
   const sort = (searchParams.get("sort") as SortKey | null) ?? "asc";
   const [searchText, setSearchText] = useState(query);
 
-  function updateLibraryParams(updates: Record<string, string | null>) {
+  function updatePageParams(updates: Record<string, string | null>) {
     const params = new URLSearchParams(searchParams.toString());
+
     Object.entries(updates).forEach(([key, value]) => {
       if (!value) params.delete(key);
       else params.set(key, value);
     });
 
     const qs = params.toString();
-    const targetPath = pathname?.startsWith("/library") ? pathname : "/library";
+    const targetPath = pathname || "/";
     router.replace(qs ? `${targetPath}?${qs}` : targetPath, { scroll: false });
   }
 
@@ -118,13 +120,13 @@ export default function WorkView({ children, onNewProject }: WorkviewProps) {
   }, [query]);
 
   useEffect(() => {
-    if (!isLibrary) return;
+    if (!isLibrary && !isHome) return;
 
     const handle = setTimeout(() => {
       const nextQ = searchText || null;
       const currentQ = query || null;
       if (nextQ !== currentQ) {
-        updateLibraryParams({ q: nextQ });
+        updatePageParams({ q: nextQ });
       }
     }, 500);
 
@@ -139,8 +141,8 @@ export default function WorkView({ children, onNewProject }: WorkviewProps) {
           <input
             className="flex flex-1 min-w-xs max-w-3xl rounded-2xl p-2 m-2 bg-(--background)"
             type="text"
-            placeholder=" Search"
-            value={isLibrary ? searchText : ""}
+            placeholder={isHome ? " Search Projects" : " Search Library"}
+            value={navConfig.showSearch ? searchText : ""}
             onChange={(e) => setSearchText(e.target.value)}
           />
         )}
@@ -171,12 +173,12 @@ export default function WorkView({ children, onNewProject }: WorkviewProps) {
             activePart={part}
             sort={sort}
             onPartChange={(nextPart) =>
-              updateLibraryParams({
+              updatePageParams({
                 part: nextPart === "all" ? null : nextPart,
               })
             }
             onSortChange={(nextSort) =>
-              updateLibraryParams({
+              updatePageParams({
                 sort: nextSort === "asc" ? null : nextSort,
               })
             }

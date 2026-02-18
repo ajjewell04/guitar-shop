@@ -64,7 +64,7 @@ export async function DELETE(req: Request) {
     return NextResponse.json({ error: "Project not found" }, { status: 404 });
   }
 
-  const { data: nodes, error: nodeError } = await supabase
+  /*const { data: nodes, error: nodeError } = await supabase
     .from("project_nodes")
     .select("asset_id")
     .eq("project_id", body.id);
@@ -95,7 +95,7 @@ export async function DELETE(req: Request) {
       );
     }
     files = assetFiles ?? [];
-  }
+  }*/
 
   const { error: deleteFilesError } = await supabase
     .from("projects")
@@ -110,7 +110,7 @@ export async function DELETE(req: Request) {
     );
   }
 
-  if (files.length > 0) {
+  /*if (files.length > 0) {
     try {
       await deleteFromS3(files);
     } catch {
@@ -119,7 +119,7 @@ export async function DELETE(req: Request) {
         { status: 200 },
       );
     }
-  }
+  }*/
 
   return NextResponse.json({ ok: true }, { status: 200 });
 }
