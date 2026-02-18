@@ -15,6 +15,7 @@ type SidebarProps = {
 export default function Sidebar({ onNewProject }: SidebarProps) {
   const [projects, setProjects] = useState<Project[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
 
   useEffect(() => {
     let isActive = true;
@@ -35,6 +36,10 @@ export default function Sidebar({ onNewProject }: SidebarProps) {
 
       setProjects(data ?? []);
     };
+
+    supabase.auth.getUser().then(({ data }) => {
+      if (isActive) setUserId(data.user?.id ?? null);
+    });
 
     loadProjects();
 
@@ -61,7 +66,9 @@ export default function Sidebar({ onNewProject }: SidebarProps) {
             <Link href="/">Home</Link>
           </li>
           <li>
-            <Link href="#">My Library</Link>
+            <Link href={userId ? `/library/${userId}` : "/library"}>
+              My Library
+            </Link>
           </li>
           <li>
             <Link href="/library">Community Library</Link>

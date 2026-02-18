@@ -49,6 +49,13 @@ function getNavConfig(pathname: string): NavConfig {
       showFilters: true,
     };
   }
+  if (pathname.startsWith("/library/")) {
+    return {
+      title: "My Library",
+      showSearch: true,
+      showFilters: true,
+    };
+  }
   if (pathname.startsWith("/projects/")) {
     return {
       title: "Project Playground",
@@ -84,7 +91,8 @@ export default function WorkView({ children, onNewProject }: WorkviewProps) {
     });
 
     const qs = params.toString();
-    router.replace(qs ? `/library?${qs}` : "/library", { scroll: false });
+    const targetPath = pathname?.startsWith("/library") ? pathname : "/library";
+    router.replace(qs ? `${targetPath}?${qs}` : targetPath, { scroll: false });
   }
 
   useEffect(() => {

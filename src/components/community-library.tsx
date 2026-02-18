@@ -36,10 +36,13 @@ type ApprovedAssetRow = {
   modelUrl?: string | null;
 };
 
-type CommunityLibraryViewProps = React.ComponentPropsWithoutRef<"div">;
+type CommunityLibraryViewProps = React.ComponentPropsWithoutRef<"div"> & {
+  ownerId?: string;
+};
 
 export default function CommunityLibraryView({
   className,
+  ownerId,
 }: CommunityLibraryViewProps) {
   const [assets, setAssets] = useState<ApprovedAssetRow[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -108,7 +111,10 @@ export default function CommunityLibraryView({
 
   useEffect(() => {
     const loadUploadedAssets = async () => {
-      const res = await fetch("/api/models?view=library", {
+      const params = new URLSearchParams({ view: "library" });
+      if (ownerId) params.set("ownerId", ownerId);
+
+      const res = await fetch(`/api/models?${params.toString()}`, {
         cache: "no-store",
       });
       const payload = await res.json().catch(() => ({}));
@@ -126,7 +132,7 @@ export default function CommunityLibraryView({
     };
 
     loadUploadedAssets();
-  }, []);
+  }, [ownerId]);
 
   useEffect(() => {
     if (loading || assets.length === 0) return;
@@ -149,7 +155,7 @@ export default function CommunityLibraryView({
         try {
           await generatePreview(asset);
         } catch (e) {
-          console.error(`Preview generation failed for $(asset.id)`, e);
+          console.error(`Preview generation failed for ${asset.id}`, e);
         }
       }
     };

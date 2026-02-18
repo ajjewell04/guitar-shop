@@ -48,9 +48,10 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const projectId = searchParams.get("projectId");
   const view = searchParams.get("view");
+  const ownerId = searchParams.get("ownerId");
 
   if (view === "library") {
-    const { data: assets, error } = await supabase
+    let query = supabase
       .from("assets")
       .select(
         `
@@ -76,6 +77,12 @@ export async function GET(req: Request) {
       )
       .eq("upload_status", "approved")
       .order("upload_date", { ascending: false });
+
+    if (ownerId) {
+      query = query.eq("owner_id", ownerId);
+    }
+
+    const { data: assets, error } = await query;
 
     if (error) {
       return NextResponse.json(
