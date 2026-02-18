@@ -1,9 +1,13 @@
 import { NextResponse } from "next/server";
 import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import { s3Client, S3_BUCKET } from "@/lib/s3";
+import { s3Client, S3_BUCKET, userS3Folder } from "@/lib/s3";
 import { supabaseServer } from "@/lib/supabase";
-import { userS3Folder } from "@/lib/s3";
+
+type PresignBody = {
+  filename?: string;
+  contentType?: string;
+};
 
 export async function POST(req: Request) {
   const supabase = await supabaseServer();
@@ -18,20 +22,16 @@ export async function POST(req: Request) {
 
   await userS3Folder(user.id);
 
-  const body = (await req.json()) as {
-    filename?: string;
-    contentType?: string;
-  };
+  const body = (await req.json()) as PresignBody;
+  const uploadID = crypto.randomUUID();
+  const filename = body.filename;
 
-  if (!body.filename || !body.filename.toLowerCase().endsWith(".glb")) {
-    return NextResponse.json(
-      { error: "Only .glb files are supported" },
-      { status: 400 },
-    );
+  if (!filename) {
+    return NextResponse.json({ error: "Missing filename" }, { status: 400 });
   }
 
-  const objectKey = `users/${user.id}/models/${crypto.randomUUID()}/${body.filename}`;
   const contentType = body.contentType || "model/gltf-binary";
+  const objectKey = `users/${user.id}/models/${uploadID}/${filename}`;
 
   const url = await getSignedUrl(
     s3Client,
@@ -43,5 +43,10 @@ export async function POST(req: Request) {
     { expiresIn: 60 },
   );
 
-  return NextResponse.json({ url, objectKey, contentType });
+  return NextResponse.json({
+    url,
+    objectKey,
+    contentType,
+    uploadID,
+  });
 }

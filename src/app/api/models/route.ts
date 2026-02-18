@@ -47,6 +47,71 @@ export async function GET(req: Request) {
 
   const { searchParams } = new URL(req.url);
   const projectId = searchParams.get("projectId");
+  const view = searchParams.get("view");
+
+  if (view === "library") {
+    const { data: assets, error } = await supabase
+      .from("assets")
+      .select(
+        `
+          id,
+          name,
+          owner_id,
+          part_type,
+          upload_date,
+          upload_status,
+          preview_file:asset_files!assets_preview_file_id_fkey (
+            id,
+            bucket,
+            object_key,
+            mime_type
+          ),
+          model_file:asset_files!assets_asset_file_id_fkey (
+            id,
+            bucket,
+            object_key,
+            mime_type
+          )
+        `,
+      )
+      .eq("upload_status", "approved")
+      .order("upload_date", { ascending: false });
+
+    if (error) {
+      return NextResponse.json(
+        { error: error?.message ?? "Failed to retrieve assets" },
+        { status: 400 },
+      );
+    }
+
+    const rows = await Promise.all(
+      (assets ?? []).map(async (asset) => {
+        const rawPreview = asset.preview_file;
+        const rawModel = asset.model_file;
+
+        const previewFile = Array.isArray(rawPreview)
+          ? rawPreview[0]
+          : rawPreview;
+        const modelFile = Array.isArray(rawModel) ? rawModel[0] : rawModel;
+
+        const previewUrl = await signFileUrl(previewFile);
+        const modelUrl = await signFileUrl(modelFile);
+
+        return {
+          id: asset.id,
+          name: asset.name,
+          owner_id: asset.owner_id,
+          part_type: asset.part_type,
+          upload_date: asset.upload_date,
+          upload_status: asset.upload_status,
+          previewUrl,
+          modelUrl,
+        };
+      }),
+    );
+
+    return NextResponse.json({ assets: rows }, { status: 200 });
+  }
 
   if (!projectId) {
     return NextResponse.json({ error: "Missing projectId" }, { status: 400 });
@@ -67,7 +132,6 @@ export async function GET(req: Request) {
           asset:assets!project_nodes_asset_id_fkey (
             id,
             name,
-            type,
             asset_file_id,
             asset_file:asset_files!assets_asset_file_id_fkey (
               id,
@@ -95,7 +159,13 @@ export async function GET(req: Request) {
   const rawFile = project.root_node?.asset?.asset_file;
   const file = Array.isArray(rawFile) ? rawFile[0] : rawFile;
 
+  const rawPreviewFile = project.root_node?.asset?.preview_file;
+  const previewFile = Array.isArray(rawPreviewFile)
+    ? rawPreviewFile[0]
+    : rawPreviewFile;
+
   const url = await signFileUrl(file);
+  const previewUrl = await signFileUrl(previewFile);
 
   return NextResponse.json({
     project: {
@@ -114,7 +184,18 @@ export async function GET(req: Request) {
           file_variant: file.file_variant,
         }
       : null,
+    root_preview_file: previewFile
+      ? {
+          id: previewFile.id,
+          bucket: previewFile.bucket,
+          object_key: previewFile.object_key,
+          mime_type: previewFile.mime_type,
+          bytes: previewFile.bytes,
+          file_variant: previewFile.file_variant,
+        }
+      : null,
     url,
+    previewUrl,
   });
 }
 
@@ -157,8 +238,6 @@ export async function POST(req: Request) {
     .from("assets")
     .insert({
       name: `${body.templateKey} template`,
-      type: "model",
-      scope: "project",
       owner_id: user.id,
       meta: { template: body.templateKey },
     })

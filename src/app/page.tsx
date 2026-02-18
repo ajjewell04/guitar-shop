@@ -4,10 +4,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import React from "react";
-import { createClient } from "@/lib/client";
 import { useEffect, useState } from "react";
+import Image from "next/image";
 
 type ProjectRow = {
+  previewUrl: string | undefined;
   id: string;
   owner_id: string;
   name: string;
@@ -23,18 +24,16 @@ export default function Home({
   const [error, setError] = useState<string | null>(null);
 
   const loadProjects = async () => {
-    const supabase = createClient();
-    const { data, error } = await supabase
-      .from("projects")
-      .select("id, owner_id, name, created_on, last_updated")
-      .order("last_updated", { ascending: false });
+    const res = await fetch("/api/projects", { cache: "no-store" });
+    const payload = await res.json().catch(() => ({}));
 
-    if (error) {
-      setError(error.message);
+    if (!res.ok) {
+      setError(payload?.error ?? "Failed to load projects");
       setProjects([]);
       return;
     }
-    setProjects((data ?? []) as ProjectRow[]);
+    setError(null);
+    setProjects((payload.projects ?? []) as ProjectRow[]);
   };
 
   useEffect(() => {
@@ -59,6 +58,8 @@ export default function Home({
 
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 m-4">
+      {error && <div className="text-red-500">{error}</div>}
+
       {projects.map((project) => {
         return (
           <Card key={project.id}>
@@ -74,7 +75,21 @@ export default function Home({
                 🗑️
               </Button>
             </CardHeader>
-            <CardContent>
+            <CardContent className="flex flex-row items-start gap-2">
+              <div className="relative h-100 w-100 mb-4 bg-black/20 rounded-t-lg overflow-hidden">
+                {project.previewUrl ? (
+                  <Image
+                    src={project.previewUrl}
+                    alt={`${project.name} preview`}
+                    fill={true}
+                    className="object-cover"
+                  />
+                ) : (
+                  <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+                    No preview available
+                  </div>
+                )}
+              </div>
               <div className="text-xs text-muted-foreground">
                 Last Edited:{" "}
                 {new Date(project.last_updated).toLocaleDateString()}

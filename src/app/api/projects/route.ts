@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/server";
 import { z } from "zod";
-import { DeleteObjectsCommand } from "@aws-sdk/client-s3";
+import { DeleteObjectsCommand, GetObjectCommand } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { s3Client, S3_BUCKET } from "@/lib/s3";
 
 const DeleteSchema = z.object({
@@ -162,4 +163,80 @@ export async function POST(req: Request) {
   }
 
   return NextResponse.json({ id: project_id, root_node_id }, { status: 201 });
+}
+
+async function signFileUrl(file?: {
+  bucket: string | null;
+  object_key: string | null;
+  mime_type: string | null;
+}) {
+  if (!file?.object_key) return null;
+  return getSignedUrl(
+    s3Client,
+    new GetObjectCommand({
+      Bucket: file.bucket ?? S3_BUCKET,
+      Key: file.object_key,
+      ResponseContentType: file.mime_type ?? undefined,
+    }),
+    { expiresIn: 300 },
+  );
+}
+
+export async function GET(req: Request) {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user)
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { data, error } = await supabase
+    .from("projects")
+    .select(
+      `
+        id,
+        owner_id,
+        name,
+        created_on,
+        last_updated,
+        root_node_id,
+        root_node:project_nodes!projects_root_node_id_fkey (
+          asset:assets!project_nodes_asset_id_fkey (
+          id,
+          preview_file:asset_files!assets_preview_file_id_fkey (
+            bucket,
+            object_key,
+            mime_type
+          )
+        )
+      )`,
+    )
+    .eq("owner_id", user.id)
+    .order("last_updated", { ascending: false });
+
+  if (error) {
+    return NextResponse.json({ error: error?.message }, { status: 400 });
+  }
+
+  const projects = await Promise.all(
+    (data ?? []).map(async (project) => {
+      const rawPreview = project.root_node?.asset?.preview_file;
+      const previewFile = Array.isArray(rawPreview)
+        ? rawPreview[0]
+        : rawPreview;
+      const previewUrl = await signFileUrl(previewFile);
+      return {
+        id: project.id,
+        owner_id: project.owner_id,
+        name: project.name,
+        created_on: project.created_on,
+        last_updated: project.last_updated,
+        previewUrl,
+      };
+    }),
+  );
+
+  return NextResponse.json({ projects }, { status: 200 });
 }

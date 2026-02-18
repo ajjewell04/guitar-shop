@@ -1,22 +1,49 @@
+"use client";
+
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
-import { useState } from "react";
 
-function PartFilters() {
-  const [activeFilter, setActiveFilter] = useState<string | null>(null);
-  const [activeSort, setActiveSort] = useState<"asc" | "desc">("asc");
+type PartType =
+  | "all"
+  | "body"
+  | "neck"
+  | "headstock"
+  | "bridge"
+  | "tuning_machine"
+  | "pickup"
+  | "pickguard"
+  | "knob"
+  | "switch"
+  | "strap_button"
+  | "output_jack"
+  | "miscellaneous";
+
+type SortKey = "asc" | "desc";
+
+type PartFiltersProps = {
+  activePart: PartType;
+  sort: SortKey;
+  onPartChange: (part: PartType) => void;
+  onSortChange: (sort: SortKey) => void;
+};
+
+function PartFilters({
+  activePart,
+  sort,
+  onPartChange,
+  onSortChange,
+}: PartFiltersProps) {
+  const isActive = (part: PartType) => activePart === part;
 
   return (
     <div className="flex flex-row gap-2 flex-wrap">
-      <Button
-        className="flex items-center"
-        onClick={() => setActiveFilter(null)}
-      >
+      <Button className="flex items-center" onClick={() => onPartChange("all")}>
         All
       </Button>
       <Button
         className="flex items-center"
-        onClick={() => setActiveFilter("Bodies")}
+        type="button"
+        onClick={() => onPartChange("body")}
       >
         <Image
           src="/icons/body.png"
@@ -25,11 +52,12 @@ function PartFilters() {
           height={64}
           className="invert rotate-315"
         />
-        {activeFilter === "Bodies" && "Bodies"}
+        {isActive("body") && "Bodies"}
       </Button>
       <Button
         className="flex items-center"
-        onClick={() => setActiveFilter("Necks")}
+        type="button"
+        onClick={() => onPartChange("neck")}
       >
         <Image
           src="/icons/neck.png"
@@ -38,11 +66,12 @@ function PartFilters() {
           height={64}
           className="invert rotate-315"
         />
-        {activeFilter === "Necks" && "Necks"}
+        {isActive("neck") && "Necks"}
       </Button>
       <Button
         className="flex items-center"
-        onClick={() => setActiveFilter("Headstocks")}
+        type="button"
+        onClick={() => onPartChange("headstock")}
       >
         <Image
           src="/icons/headstock.png"
@@ -51,11 +80,12 @@ function PartFilters() {
           height={64}
           className="invert rotate-245"
         />
-        {activeFilter === "Headstocks" && "Headstocks"}
+        {isActive("headstock") && "Headstocks"}
       </Button>
       <Button
         className="flex items-center"
-        onClick={() => setActiveFilter("Bridges")}
+        type="button"
+        onClick={() => onPartChange("bridge")}
       >
         <Image
           src="/icons/bridge.png"
@@ -64,11 +94,12 @@ function PartFilters() {
           height={64}
           className="invert rotate-315"
         />
-        {activeFilter === "Bridges" && "Bridges"}
+        {isActive("bridge") && "Bridges"}
       </Button>
       <Button
         className="flex items-center"
-        onClick={() => setActiveFilter("Tuning Machines")}
+        type="button"
+        onClick={() => onPartChange("tuning_machine")}
       >
         <Image
           src="/icons/tuningmachine.png"
@@ -77,11 +108,12 @@ function PartFilters() {
           height={64}
           className="invert rotate-315"
         />
-        {activeFilter === "Tuning Machines" && "Tuning Machines"}
+        {isActive("tuning_machine") && "Tuning Machines"}
       </Button>
       <Button
         className="flex items-center"
-        onClick={() => setActiveFilter("Pickguards")}
+        type="button"
+        onClick={() => onPartChange("pickup")}
       >
         <Image
           src="/icons/pickup.png"
@@ -90,11 +122,12 @@ function PartFilters() {
           height={64}
           className="invert rotate-315"
         />
-        {activeFilter === "Pickups" && "Pickups"}
+        {isActive("pickup") && "Pickup"}
       </Button>
       <Button
         className="flex items-center"
-        onClick={() => setActiveFilter("Pickguards")}
+        type="button"
+        onClick={() => onPartChange("pickguard")}
       >
         <Image
           src="/icons/pickguard.png"
@@ -103,11 +136,12 @@ function PartFilters() {
           height={64}
           className="invert rotate-315"
         />
-        {activeFilter === "Pickguards" && "Pickguards"}
+        {isActive("pickguard") && "Pickguards"}
       </Button>
       <Button
         className="flex items-center"
-        onClick={() => setActiveFilter("Knobs")}
+        type="button"
+        onClick={() => onPartChange("knob")}
       >
         <Image
           src="/icons/knob.png"
@@ -116,22 +150,26 @@ function PartFilters() {
           height={64}
           className="invert rotate-315"
         />
-        {activeFilter === "Knobs" && "Knobs"}
+        {isActive("knob") && "Knobs"}
       </Button>
-      <Button className="flex items-center">
+      <Button
+        className="flex items-center"
+        type="button"
+        onClick={() => onPartChange("switch")}
+      >
         <Image
           src="/icons/switch.png"
           alt="Switch"
           width={64}
           height={64}
           className="invert rotate-315"
-          onClick={() => setActiveFilter("Switches")}
         />
-        {activeFilter === "Switches" && "Switches"}
+        {isActive("switch") && "Switches"}
       </Button>
       <Button
         className="flex items-center"
-        onClick={() => setActiveFilter("Strap Buttons")}
+        type="button"
+        onClick={() => onPartChange("strap_button")}
       >
         <Image
           src="/icons/strapbutton.png"
@@ -140,11 +178,12 @@ function PartFilters() {
           height={64}
           className="invert rotate-315"
         />
-        {activeFilter === "Strap Buttons" && "Strap Buttons"}
+        {isActive("strap_button") && "Strap Buttons"}
       </Button>
       <Button
         className="flex items-center"
-        onClick={() => setActiveFilter("Output Jacks")}
+        type="button"
+        onClick={() => onPartChange("output_jack")}
       >
         <Image
           src="/icons/outputjack.png"
@@ -153,9 +192,9 @@ function PartFilters() {
           height={64}
           className="invert rotate-270"
         />
-        {activeFilter === "Output Jacks" && "Output Jacks"}
+        {isActive("output_jack") && "Output Jacks"}
       </Button>
-      <Button className="flex items-center">
+      <Button className="flex items-center" type="button">
         <Image
           src="/icons/filter.png"
           alt="Filter"
@@ -166,17 +205,14 @@ function PartFilters() {
       </Button>
       <Button
         className="flex items-center"
-        onClick={() =>
-          setActiveSort((prev) => (prev === "asc" ? "desc" : "asc"))
-        }
+        type="button"
+        onClick={() => onSortChange(sort === "asc" ? "desc" : "asc")}
       >
         <Image
           src={
-            activeSort === "asc"
-              ? "/icons/ascending.png"
-              : "/icons/descending.png"
+            sort === "asc" ? "/icons/descending.png" : "/icons/ascending.png"
           }
-          alt={activeSort === "asc" ? "Ascending" : "Descending"}
+          alt={sort === "asc" ? "Ascending" : "Descending"}
           width={32}
           height={32}
           className="invert"

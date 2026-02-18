@@ -21,6 +21,7 @@ import { Button } from "@/components/ui/button";
 import Image from "next/image";
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
+import { renderModelPreview } from "@/lib/model-preview";
 
 const PART_TYPES = [
   "body",
@@ -136,38 +137,72 @@ export function NewProjectForm({
           return;
         }
 
-        const presignRes = await fetch("/api/models/import/presign", {
+        const modelPresignRes = await fetch("/api/models/import/presign", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
+            kind: "model",
             filename: file.name,
-            contentType: file.type,
+            contentType: file.type || "model/gltf-binary",
           }),
         });
 
-        const presignData = await presignRes.json();
-        if (!presignRes.ok) {
-          throw new Error(presignData?.error ?? "Presign failed");
+        const modelPresignData = await modelPresignRes.json();
+        if (!modelPresignRes.ok) {
+          throw new Error(modelPresignData?.error ?? "Model presign failed");
         }
 
-        const putRes = await fetch(presignData.url, {
+        const modelPutRes = await fetch(modelPresignData.url, {
           method: "PUT",
-          headers: { "Content-Type": presignData.contentType },
+          headers: { "Content-Type": modelPresignData.contentType },
           body: file,
         });
 
-        if (!putRes.ok) {
+        if (!modelPutRes.ok) {
           throw new Error("S3 upload failed");
+        }
+
+        const previewBlob = await renderModelPreview(file);
+        const previewPresignRes = await fetch("/api/models/import/presign", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            kind: "preview",
+            uploadID: modelPresignData.uploadID,
+            filename: "preview.png",
+            contentType: "image/png",
+          }),
+        });
+
+        const previewPresignData = await previewPresignRes.json();
+        if (!previewPresignRes.ok) {
+          throw new Error(
+            previewPresignData?.error ?? "Preview presign failed",
+          );
+        }
+
+        const previewPutRes = await fetch(previewPresignData.url, {
+          method: "PUT",
+          headers: { "Content-Type": previewPresignData.contentType },
+          body: previewBlob,
+        });
+
+        if (!previewPutRes.ok) {
+          throw new Error("S3 preview upload failed");
         }
 
         const finalizeRes = await fetch("/api/models/import", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            objectKey: presignData.objectKey,
+            objectKey: modelPresignData.objectKey,
             filename: file.name,
-            contentType: presignData.contentType,
+            contentType: modelPresignData.contentType,
             bytes: file.size,
+            previewObjectKey: previewPresignData.objectKey,
+            previewFilename: "preview.png",
+            previewContentType: previewPresignData.contentType,
+            previewBytes: previewBlob.size,
             assetName: assetName.trim(),
             partType,
           }),
@@ -201,8 +236,8 @@ export function NewProjectForm({
       window.dispatchEvent(new Event("projects-changed"));
       router.push(`/projects/${newProjectId}`);
       router.refresh();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Create failed");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Create failed");
     } finally {
       setIsSubmitting(false);
     }

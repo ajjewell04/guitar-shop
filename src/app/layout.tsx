@@ -32,9 +32,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${geistSans.variable} ${geistMono.variable}`}>
-        <div className="h-screen w-screen flex">
+        <div className="h-screen w-screen flex overflow-hidden">
           <div className="flex flex-col h-screen">
-            <header className="flex flex-col m-8">
+            <header className="flex flex-col p-8">
               <h1 className="self-center text-3xl font-bold">Guitarshop</h1>
             </header>
             <Sidebar onNewProject={() => setIsNewProjectOpen(true)} />
