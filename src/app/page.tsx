@@ -23,6 +23,9 @@ export default function Home({
 }: React.ComponentPropsWithoutRef<"div">) {
   const [projects, setProjects] = useState<ProjectRow[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [deletingProjectId, setDeletingProjectId] = useState<string | null>(
+    null,
+  );
   const searchParams = useSearchParams();
   const q = (searchParams.get("q") ?? "").toLowerCase().trim();
 
@@ -44,19 +47,33 @@ export default function Home({
   }, []);
 
   const onDelete = async (projectId: string) => {
-    const res = await fetch("/api/projects", {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: projectId }),
-    });
+    setError(null);
+    setDeletingProjectId(projectId);
 
-    if (!res.ok) {
+    const previous = projects;
+    setProjects((prev) => prev.filter((p) => p.id !== projectId));
+
+    try {
+      const res = await fetch("/api/projects", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: projectId }),
+      });
       const data = await res.json().catch(() => ({}));
-      throw new Error(data?.error ?? "Delete failed");
-    }
+      if (!res.ok) {
+        setProjects(previous);
+        throw new Error(data?.error ?? "Delete failed");
+      }
 
-    await loadProjects();
-    window.dispatchEvent(new Event("projects-changed"));
+      window.dispatchEvent(
+        new CustomEvent("project-deleted", { detail: { id: projectId } }),
+      );
+      window.dispatchEvent(new Event("projects-changed"));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Delete failed");
+    } finally {
+      setDeletingProjectId(null);
+    }
   };
 
   const visibleProjects = useMemo(() => {
@@ -81,14 +98,15 @@ export default function Home({
               <CardHeader className="flex justify-between">
                 <CardTitle>{project.name}</CardTitle>
                 <Button
-                  className="cursor-pointer text-xl rounded-lg p-2 bg-red-700"
+                  className="cursor-pointer border-red-600 text-red-600"
                   variant="outline"
+                  disabled={deletingProjectId === project.id}
                   onClick={(e) => {
                     e.preventDefault();
                     onDelete(project.id);
-                  }}
+                  }} //🗑️
                 >
-                  🗑️
+                  {deletingProjectId === project.id ? "Deleting..." : "Delete"}
                 </Button>
               </CardHeader>
               <CardContent className="flex flex-row items-start gap-2">

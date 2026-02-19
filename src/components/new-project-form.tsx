@@ -265,6 +265,7 @@ export function NewProjectForm({
               <div className="flex flex-wrap gap-2 justify-around">
                 <Button
                   type="button"
+                  className="cursor-pointer"
                   variant={projectType === "blank" ? "secondary" : "outline"}
                   onClick={() => setProjectType("blank")}
                 >
@@ -272,6 +273,7 @@ export function NewProjectForm({
                 </Button>
                 <Button
                   type="button"
+                  className="cursor-pointer"
                   variant={projectType === "import" ? "secondary" : "outline"}
                   onClick={() => {
                     setProjectType("import");
@@ -282,6 +284,7 @@ export function NewProjectForm({
                 </Button>
                 <Button
                   type="button"
+                  className="cursor-pointer"
                   variant={projectType === "template" ? "secondary" : "outline"}
                   onClick={() => {
                     setProjectType("template");
@@ -356,7 +359,7 @@ export function NewProjectForm({
                       templateType === "stratocaster" ? "secondary" : "outline"
                     }
                     onClick={() => setTemplateType("stratocaster")}
-                    className="h-auto p-2"
+                    className="cursor-pointer h-auto p-2"
                   >
                     <div className="relative h-24 w-full overflow-hidden rounded-md">
                       <Image
@@ -377,7 +380,7 @@ export function NewProjectForm({
                       templateType === "telecaster" ? "secondary" : "outline"
                     }
                     onClick={() => setTemplateType("telecaster")}
-                    className="h-auto p-2"
+                    className="cursor-pointer h-auto p-2"
                   >
                     <div className="relative h-24 w-full overflow-hidden rounded-md">
                       <Image
@@ -398,7 +401,7 @@ export function NewProjectForm({
                       templateType === "les-paul" ? "secondary" : "outline"
                     }
                     onClick={() => setTemplateType("les-paul")}
-                    className="h-auto p-2"
+                    className="cursor-pointer h-auto p-2"
                   >
                     <div className="relative h-24 w-full overflow-hidden rounded-md">
                       <Image
@@ -419,7 +422,7 @@ export function NewProjectForm({
               <Button
                 type="submit"
                 disabled={isSubmitting}
-                className="w-full border border-(--primary)"
+                className="cursor-pointer w-full border border-(--primary)"
               >
                 {isSubmitting ? "Creating..." : "Submit"}
               </Button>

@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
-import { CopyObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
+import {
+  CopyObjectCommand,
+  DeleteObjectsCommand,
+  GetObjectCommand,
+} from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { s3Client, S3_BUCKET } from "@/lib/s3";
 import { supabaseServer } from "@/lib/supabase";
@@ -34,6 +38,202 @@ async function signFileUrl(file?: {
   );
 }
 
+async function deleteFromS3(
+  files: Array<{ bucket: string | null; object_key: string | null }>,
+) {
+  const deleteBucket = new Map<string, string[]>();
+
+  for (const file of files) {
+    if (!file.object_key) continue;
+    const bucket = file.bucket ?? S3_BUCKET;
+    const keys = deleteBucket.get(bucket) ?? [];
+    keys.push(file.object_key);
+    deleteBucket.set(bucket, keys);
+  }
+
+  for (const [bucket, keys] of deleteBucket) {
+    for (let ii = 0; ii < keys.length; ii += 1000) {
+      const chunk = keys.slice(ii, ii + 1000).map((Key) => ({ Key }));
+      await s3Client.send(
+        new DeleteObjectsCommand({
+          Bucket: bucket,
+          Delete: { Objects: chunk, Quiet: true },
+        }),
+      );
+    }
+  }
+}
+
+function toCopySource(bucket: string, key: string) {
+  return `${bucket}/${key.split("/").map(encodeURIComponent).join("/")}`;
+}
+
+export async function DELETE(req: Request) {
+  const supabase = await supabaseServer();
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+
+  if (userError || !user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const body = (await req.json().catch(() => null)) as {
+    assetId?: string;
+  } | null;
+
+  if (!body?.assetId) {
+    return NextResponse.json({ error: "Missing assetId" }, { status: 400 });
+  }
+
+  const { data: asset, error: assetError } = await supabase
+    .from("assets")
+    .select("id, owner_id")
+    .eq("id", body.assetId)
+    .single();
+
+  if (assetError || !asset) {
+    return NextResponse.json({ error: "Asset not found" }, { status: 404 });
+  }
+
+  if (asset.owner_id !== user.id) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const { data: inUseRows, error: inUseError } = await supabase
+    .from("project_nodes")
+    .select("id")
+    .eq("asset_id", asset.id)
+    .limit(1);
+
+  if (inUseError) {
+    return NextResponse.json({ error: inUseError.message }, { status: 400 });
+  }
+
+  if ((inUseRows ?? []).length > 0) {
+    return NextResponse.json(
+      { error: "Asset is used by a project and cannot be deleted" },
+      { status: 409 },
+    );
+  }
+
+  const { data: currentAsset, error: currentAssetError } = await supabase
+    .from("assets")
+    .select("id, owner_id, asset_file_id, preview_file_id")
+    .eq("id", body.assetId)
+    .single();
+
+  if (currentAssetError || !currentAsset) {
+    return NextResponse.json({ error: "Asset not found" }, { status: 404 });
+  }
+
+  if (currentAsset.owner_id !== user.id) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const { data: files, error: filesReadError } = await supabase
+    .from("asset_files")
+    .select("id, owner_id, bucket, object_key")
+    .eq("asset_id", currentAsset.id);
+
+  if (filesReadError) {
+    return NextResponse.json(
+      { error: filesReadError.message },
+      { status: 400 },
+    );
+  }
+
+  const { error: nullRefsError } = await supabase
+    .from("assets")
+    .update({
+      asset_file_id: null,
+      preview_file_id: null,
+      last_updated: new Date().toISOString(),
+    })
+    .eq("id", currentAsset.id)
+    .eq("owner_id", user.id);
+
+  if (nullRefsError) {
+    return NextResponse.json({ error: nullRefsError.message }, { status: 400 });
+  }
+
+  const { data: deletedFiles, error: deleteFilesError } = await supabase
+    .from("asset_files")
+    .delete()
+    .eq("asset_id", currentAsset.id)
+    .eq("owner_id", user.id)
+    .select("id");
+
+  if (deleteFilesError) {
+    await supabase
+      .from("assets")
+      .update({
+        asset_file_id: currentAsset.asset_file_id,
+        preview_file_id: currentAsset.preview_file_id,
+        last_updated: new Date().toISOString(),
+      })
+      .eq("id", currentAsset.id)
+      .eq("owner_id", user.id);
+    return NextResponse.json(
+      { error: deleteFilesError.message },
+      { status: 400 },
+    );
+  }
+
+  const expectedFileCount = files?.length ?? 0;
+  const actualDeletedFileCount = deletedFiles?.length ?? 0;
+
+  if (actualDeletedFileCount !== expectedFileCount) {
+    await supabase
+      .from("assets")
+      .update({
+        asset_file_id: currentAsset.asset_file_id,
+        preview_file_id: currentAsset.preview_file_id,
+        last_updated: new Date().toISOString(),
+      })
+      .eq("id", currentAsset.id)
+      .eq("owner_id", user.id);
+
+    return NextResponse.json(
+      { error: "Delete blocked by policy: could not delete asset files" },
+      { status: 403 },
+    );
+  }
+
+  const { data: deletedAsset, error: deleteAssetError } = await supabase
+    .from("assets")
+    .delete()
+    .eq("id", currentAsset.id)
+    .eq("owner_id", user.id)
+    .select("id")
+    .maybeSingle();
+
+  if (deleteAssetError || !deletedAsset) {
+    return NextResponse.json(
+      {
+        error:
+          deleteAssetError?.message ??
+          "Delete blocked by policy: asset not deleted",
+      },
+      { status: 403 },
+    );
+  }
+
+  if ((files ?? []).length > 0) {
+    try {
+      await deleteFromS3(files);
+    } catch {
+      return NextResponse.json(
+        { ok: true, warning: "Asset deleted, but S3 deletion failed" },
+        { status: 200 },
+      );
+    }
+  }
+
+  return NextResponse.json({ ok: true }, { status: 200 });
+}
+
 export async function GET(req: Request) {
   const supabase = await supabaseServer();
   const {
@@ -51,7 +251,9 @@ export async function GET(req: Request) {
   const ownerId = searchParams.get("ownerId");
 
   if (view === "library") {
-    const isOwnLibrary = !!ownerId && ownerId === user.id;
+    if (ownerId && ownerId !== user.id) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
 
     let query = supabase
       .from("assets")
@@ -81,9 +283,7 @@ export async function GET(req: Request) {
 
     if (ownerId) {
       query = query.eq("owner_id", ownerId);
-    }
-
-    if (!isOwnLibrary) {
+    } else {
       query = query.eq("upload_status", "approved");
     }
 
@@ -225,8 +425,187 @@ export async function POST(req: Request) {
   await userS3Folder(user.id);
 
   const body = (await req.json()) as {
+    mode?: "template" | "copy_to_library";
     templateKey?: keyof typeof TEMPLATE_S3_KEYS;
+    sourceAssetId?: string;
   };
+
+  if (body.mode === "copy_to_library") {
+    if (!body.sourceAssetId) {
+      return NextResponse.json(
+        { error: "Missing sourceAssetId" },
+        { status: 400 },
+      );
+    }
+
+    const { data: source, error: sourceError } = await supabase
+      .from("assets")
+      .select(
+        `
+          id,
+          name,
+          owner_id,
+          part_type,
+          upload_status,
+          meta,
+          model_file:asset_files!assets_asset_file_id_fkey (
+            id,
+            bucket,
+            object_key,
+            mime_type,
+            bytes
+          ),
+          preview_file:asset_files!assets_preview_file_id_fkey (
+            id,
+            bucket,
+            object_key,
+            mime_type,
+            bytes
+          )
+        `,
+      )
+      .eq("id", body.sourceAssetId)
+      .eq("upload_status", "approved")
+      .single();
+
+    if (sourceError || !source) {
+      return NextResponse.json(
+        { error: "Approved source asset not found" },
+        { status: 404 },
+      );
+    }
+
+    const rawModel = source.model_file;
+    const rawPreview = source.preview_file;
+    const modelFile = Array.isArray(rawModel) ? rawModel[0] : rawModel;
+    const previewFile = Array.isArray(rawPreview) ? rawPreview[0] : rawPreview;
+
+    if (!modelFile?.object_key || !previewFile?.object_key) {
+      return NextResponse.json(
+        { error: "Source asset is missing model/preview files" },
+        { status: 400 },
+      );
+    }
+
+    const nowIso = new Date().toISOString();
+
+    const { data: newAsset, error: newAssetError } = await supabase
+      .from("assets")
+      .insert({
+        name: source.name,
+        part_type: source.part_type,
+        owner_id: user.id,
+        upload_status: null,
+        upload_date: nowIso,
+        last_updated: nowIso,
+        meta: source.meta ?? null,
+      })
+      .select("id")
+      .single();
+
+    if (newAssetError || !newAsset) {
+      return NextResponse.json(
+        { error: newAssetError?.message ?? "Asset insert failed" },
+        { status: 400 },
+      );
+    }
+
+    const modelFilename = modelFile.object_key.split("/").pop() ?? "model.glb";
+    const previewFilename =
+      previewFile.object_key.split("/").pop() ?? "preview.png";
+    const copiedModelKey = `users/${user.id}/models/${newAsset.id}/${modelFilename}`;
+    const copiedPreviewKey = `users/${user.id}/models/${newAsset.id}/${previewFilename}`;
+
+    await Promise.all([
+      s3Client.send(
+        new CopyObjectCommand({
+          Bucket: S3_BUCKET,
+          CopySource: toCopySource(
+            modelFile.bucket ?? S3_BUCKET,
+            modelFile.object_key,
+          ),
+          Key: copiedModelKey,
+        }),
+      ),
+      s3Client.send(
+        new CopyObjectCommand({
+          Bucket: S3_BUCKET,
+          CopySource: toCopySource(
+            previewFile.bucket ?? S3_BUCKET,
+            previewFile.object_key,
+          ),
+          Key: copiedPreviewKey,
+        }),
+      ),
+    ]);
+
+    const { data: copiedFiles, error: copiedFilesError } = await supabase
+      .from("asset_files")
+      .insert([
+        {
+          asset_id: newAsset.id,
+          owner_id: user.id,
+          bucket: S3_BUCKET,
+          object_key: copiedModelKey,
+          file_variant: "original",
+          mime_type: modelFile.mime_type ?? "model/gltf-binary",
+          bytes: modelFile.bytes ?? null,
+        },
+        {
+          asset_id: newAsset.id,
+          owner_id: user.id,
+          bucket: S3_BUCKET,
+          object_key: copiedPreviewKey,
+          file_variant: "preview",
+          mime_type: previewFile.mime_type ?? "image/png",
+          bytes: previewFile.bytes ?? null,
+        },
+      ])
+      .select("id, file_variant");
+
+    if (copiedFilesError || !copiedFiles?.length) {
+      return NextResponse.json(
+        {
+          error:
+            copiedFilesError?.message ?? "Copied asset_files insert failed",
+        },
+        { status: 400 },
+      );
+    }
+
+    const copiedOriginal = copiedFiles.find(
+      (f) => f.file_variant === "original",
+    );
+    const copiedPreview = copiedFiles.find((f) => f.file_variant === "preview");
+
+    if (!copiedPreview || !copiedOriginal) {
+      return NextResponse.json(
+        { error: "Both copied original and preview files are required" },
+        { status: 400 },
+      );
+    }
+
+    const { error: updateAssetError } = await supabase
+      .from("assets")
+      .update({
+        asset_file_id: copiedOriginal.id,
+        preview_file_id: copiedPreview.id,
+        last_updated: nowIso,
+      })
+      .eq("id", newAsset.id);
+
+    if (updateAssetError) {
+      return NextResponse.json(
+        { error: updateAssetError.message },
+        { status: 400 },
+      );
+    }
+
+    return NextResponse.json(
+      { assetId: newAsset.id, copiedFromAssetId: source.id },
+      { status: 201 },
+    );
+  }
 
   const template = body.templateKey ? TEMPLATE_S3_KEYS[body.templateKey] : null;
 

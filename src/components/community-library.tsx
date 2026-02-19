@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { renderModelPreview } from "@/lib/model-preview";
 import { useSearchParams } from "next/navigation";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -31,7 +32,7 @@ type ApprovedAssetRow = {
     | "output_jack"
     | "miscellaneous";
   upload_date: string;
-  upload_status: "pending" | "approved" | "rejected";
+  upload_status: "pending" | "approved" | "rejected" | null;
   previewUrl?: string;
   modelUrl?: string | null;
 };
@@ -47,8 +48,62 @@ export default function CommunityLibraryView({
   const [assets, setAssets] = useState<ApprovedAssetRow[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [copyingAssetId, setCopyingAssetId] = useState<string | null>(null);
+  const [deletingAssetId, setDeletingAssetId] = useState<string | null>(null);
   const attemptedRef = useRef<Set<string>>(new Set());
   const searchParams = useSearchParams();
+  const isCommunityView = !ownerId;
+
+  async function addToMyLibrary(sourceAssetId: string) {
+    setCopyingAssetId(sourceAssetId);
+    try {
+      const res = await fetch("/api/models", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mode: "copy_to_library",
+          sourceAssetId,
+        }),
+      });
+
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(payload?.error ?? "Failed to add asset to My Library");
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Failed to add asset";
+      setError(msg);
+    } finally {
+      setCopyingAssetId(null);
+    }
+  }
+
+  async function deleteFromLibrary(assetId: string) {
+    setError(null);
+    setDeletingAssetId(assetId);
+
+    const previousAssets = assets;
+    setAssets((prev) => prev.filter((a) => a.id !== assetId));
+
+    try {
+      const res = await fetch("/api/models", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ assetId }),
+      });
+
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setAssets(previousAssets);
+        throw new Error(payload?.error ?? "Failed to delete asset");
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Failed to delete asset";
+      setError(msg);
+    } finally {
+      setDeletingAssetId(null);
+    }
+  }
 
   async function generatePreview(asset: ApprovedAssetRow) {
     if (!asset.modelUrl) throw new Error("Model URL is missing");
@@ -218,7 +273,32 @@ export default function CommunityLibraryView({
             {visibleAssets.map((asset) => (
               <Card key={asset.id} className="gap-0 py-4">
                 <CardHeader className="px-4 pb-0">
-                  <CardTitle className="text-lg">{asset.name}</CardTitle>
+                  <div className="flex items-start justify-between gap-3">
+                    <CardTitle className="text-lg">{asset.name}</CardTitle>
+
+                    {isCommunityView ? (
+                      <Button
+                        className="cursor-pointer"
+                        onClick={() => addToMyLibrary(asset.id)}
+                        disabled={copyingAssetId === asset.id}
+                      >
+                        {copyingAssetId === asset.id
+                          ? "Adding..."
+                          : "Add to My Library"}
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        className="cursor-pointer border-red-600 text-red-600"
+                        onClick={() => deleteFromLibrary(asset.id)}
+                        disabled={deletingAssetId === asset.id}
+                      >
+                        {deletingAssetId === asset.id
+                          ? "Deleting..."
+                          : "Delete"}
+                      </Button>
+                    )}
+                  </div>
                 </CardHeader>
 
                 <CardContent className="px-4 pt-0">
