@@ -4,7 +4,6 @@ import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 export async function renderModelPreview(file: File): Promise<Blob> {
   const width = 640;
   const height = 640;
-  const background = 0xf4f4f4;
 
   const canvas = document.createElement("canvas");
   canvas.width = width;

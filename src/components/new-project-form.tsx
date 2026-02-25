@@ -23,21 +23,14 @@ import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { renderModelPreview } from "@/lib/model-preview";
 
-const PART_TYPES = [
-  "body",
-  "neck",
-  "headstock",
-  "bridge",
-  "tuning_machine",
-  "pickup",
-  "pickguard",
-  "knob",
-  "switch",
-  "strap_button",
-  "output_jack",
-  "miscellaneous",
-] as const;
-type PartType = (typeof PART_TYPES)[number];
+import {
+  PART_TYPES,
+  type PartType,
+  type ProjectMode,
+  type TemplateType,
+} from "@/components/new-project/constants";
+import { createProjectWithStrategy } from "@/components/new-project/create-project";
+import type { NewProjectFormState } from "@/components/new-project/utils";
 
 type NewProjectFormProps = React.ComponentPropsWithoutRef<"div"> & {
   onSuccess?: () => void;
@@ -50,12 +43,8 @@ export function NewProjectForm({
 }: NewProjectFormProps) {
   const router = useRouter();
   const [projectName, setProjectName] = useState("");
-  const [projectType, setProjectType] = useState<
-    "blank" | "import" | "template" | null
-  >(null);
-  const [templateType, setTemplateType] = useState<
-    "stratocaster" | "telecaster" | "les-paul" | null
-  >(null);
+  const [projectType, setProjectType] = useState<ProjectMode | null>(null);
+  const [templateType, setTemplateType] = useState<TemplateType | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -69,168 +58,56 @@ export function NewProjectForm({
     setFile(selectedFile);
   }
 
+  function validateBeforeSubmit(mode: ProjectMode | null): mode is ProjectMode {
+    if (!projectName.trim()) {
+      setError("Project name is required.");
+      return false;
+    }
+    if (!mode) {
+      setError("Select a project type.");
+      return false;
+    }
+    if (mode === "template" && !templateType) {
+      setError("Select a template.");
+      return false;
+    }
+    if (mode === "import") {
+      if (!file) {
+        setError("Please select a file to import.");
+        return false;
+      }
+      if (!assetName.trim()) {
+        setError("Asset name is required for import.");
+        return false;
+      }
+      if (!partType) {
+        setError("Part type is required for import.");
+        return false;
+      }
+    }
+    return true;
+  }
+
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
 
-    if (!projectName.trim()) {
-      setError("Project name is required.");
-      return;
-    }
-
-    if (!projectType) {
-      setError("Select a project type.");
-      return;
-    }
+    if (!validateBeforeSubmit(projectType)) return;
 
     setIsSubmitting(true);
     try {
-      const body: {
-        name: string;
-        mode: "blank" | "import" | "template";
-        templateId?: string;
-        importAssetId?: string;
-      } = {
-        name: projectName.trim(),
+      const state: NewProjectFormState = {
+        projectName,
         mode: projectType,
+        templateType,
+        file,
+        assetName,
+        partType,
       };
 
-      if (projectType === "template") {
-        if (!templateType) {
-          setError("Select a template.");
-          setIsSubmitting(false);
-          return;
-        }
-
-        const templateRes = await fetch("/api/models", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ templateKey: templateType }),
-        });
-
-        const templateData = await templateRes.json();
-        if (!templateRes.ok) {
-          throw new Error(
-            templateData?.error ?? "Template asset create failed",
-          );
-        }
-
-        body.templateId = templateData.assetId;
-      }
-
-      if (projectType === "import") {
-        if (!file) {
-          setError("Please select a file to import.");
-          setIsSubmitting(false);
-          return;
-        }
-
-        if (!assetName.trim()) {
-          setError("Asset name is required for import.");
-          setIsSubmitting(false);
-          return;
-        }
-
-        if (!partType) {
-          setError("Part type is required for import.");
-          setIsSubmitting(false);
-          return;
-        }
-
-        const modelPresignRes = await fetch("/api/models/import/presign", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            kind: "model",
-            filename: file.name,
-            contentType: file.type || "model/gltf-binary",
-          }),
-        });
-
-        const modelPresignData = await modelPresignRes.json();
-        if (!modelPresignRes.ok) {
-          throw new Error(modelPresignData?.error ?? "Model presign failed");
-        }
-
-        const modelPutRes = await fetch(modelPresignData.url, {
-          method: "PUT",
-          headers: { "Content-Type": modelPresignData.contentType },
-          body: file,
-        });
-
-        if (!modelPutRes.ok) {
-          throw new Error("S3 upload failed");
-        }
-
-        const previewBlob = await renderModelPreview(file);
-        const previewPresignRes = await fetch("/api/models/import/presign", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            kind: "preview",
-            uploadID: modelPresignData.uploadID,
-            filename: "preview.png",
-            contentType: "image/png",
-          }),
-        });
-
-        const previewPresignData = await previewPresignRes.json();
-        if (!previewPresignRes.ok) {
-          throw new Error(
-            previewPresignData?.error ?? "Preview presign failed",
-          );
-        }
-
-        const previewPutRes = await fetch(previewPresignData.url, {
-          method: "PUT",
-          headers: { "Content-Type": previewPresignData.contentType },
-          body: previewBlob,
-        });
-
-        if (!previewPutRes.ok) {
-          throw new Error("S3 preview upload failed");
-        }
-
-        const finalizeRes = await fetch("/api/models/import", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            objectKey: modelPresignData.objectKey,
-            filename: file.name,
-            contentType: modelPresignData.contentType,
-            bytes: file.size,
-            previewObjectKey: previewPresignData.objectKey,
-            previewFilename: "preview.png",
-            previewContentType: previewPresignData.contentType,
-            previewBytes: previewBlob.size,
-            assetName: assetName.trim(),
-            partType,
-          }),
-        });
-
-        const finalizeData = await finalizeRes.json();
-        if (!finalizeRes.ok) {
-          throw new Error(finalizeData?.error ?? "Finalize import failed");
-        }
-
-        body.importAssetId = finalizeData.assetId;
-      }
-
-      const res = await fetch("/api/projects", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+      const newProjectId = await createProjectWithStrategy(state, {
+        renderModelPreview,
       });
-
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data?.error ?? "Create failed");
-      }
-
-      const newProjectId = data?.id;
-      if (!newProjectId) {
-        throw new Error("Project created, but no ID returned");
-      }
 
       onSuccess?.();
       window.dispatchEvent(new Event("projects-changed"));
@@ -242,7 +119,6 @@ export function NewProjectForm({
       setIsSubmitting(false);
     }
   }
-
   return (
     <div className={cn(className)} {...props}>
       <Card>

@@ -18,7 +18,7 @@ export const PatchModelBodySchema = z.object({
 export const CreateModelBodySchema = z.object({
   mode: z.enum(["template", "copy_to_library"]).optional(),
   templateKey: z.enum(["stratocaster", "telecaster", "les-paul"]).optional(),
-  sourceAssetId: z.string().uuid().optional(),
+  sourceAssetId: z.uuid().optional(),
 });
 
 export const ExportModelQuerySchema = z.object({
@@ -56,12 +56,12 @@ export const PresignImportBodySchema = z.object({
 });
 
 export const UpdateModelPreviewBodySchema = z.object({
-  assetId: z.string().uuid(),
+  assetId: z.uuid(),
   previewObjectKey: z.string().min(1),
   previewContentType: z.string().optional(),
   previewBytes: z.number().int().nonnegative().optional(),
 });
 
 export const PresignModelPreviewBodySchema = z.object({
-  assetId: z.string().uuid(),
+  assetId: z.uuid(),
 });

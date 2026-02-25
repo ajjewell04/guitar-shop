@@ -3,21 +3,21 @@ import { z } from "zod";
 export const CreateProjectBodySchema = z.object({
   name: z.string().min(1).max(50),
   mode: z.enum(["blank", "import", "template"]).default("blank"),
-  templateId: z.string().uuid().optional(),
-  importAssetId: z.string().uuid().optional(),
+  templateId: z.uuid().optional(),
+  importAssetId: z.uuid().optional(),
 });
 
 export const DeleteProjectBodySchema = z.object({
-  id: z.string().uuid(),
+  id: z.uuid(),
 });
 
 export const UpdateProjectPreviewBodySchema = z.object({
-  projectId: z.string().uuid(),
+  projectId: z.uuid(),
   previewObjectKey: z.string().min(1),
   previewContentType: z.string().default("image/png"),
   previewBytes: z.number().int().nonnegative().nullable().optional(),
 });
 
 export const PresignProjectPreviewBodySchema = z.object({
-  projectId: z.string().uuid(),
+  projectId: z.uuid(),
 });

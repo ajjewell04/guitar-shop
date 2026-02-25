@@ -109,17 +109,78 @@ export async function handlePost(req: Request) {
   const template = body.templateKey ? TEMPLATE_S3_KEYS[body.templateKey] : null;
   if (!template?.glb) return jsonError("Invalid templateKey", 400);
 
-  const folder = `users/${auth.user.id}/models/${crypto.randomUUID()}`;
+  const nowIso = new Date().toISOString();
+
+  const { data: newAsset, error: newAssetError } = await supabase
+    .from("assets")
+    .insert({
+      name: template.name,
+      owner_id: auth.user.id,
+      upload_status: null,
+      upload_date: nowIso,
+      last_updated: nowIso,
+      meta: { source: "template", templateKey: body.templateKey },
+    })
+    .select("id")
+    .single();
+
+  if (newAssetError || !newAsset) {
+    return jsonError(
+      newAssetError?.message ?? "Template asset insert failed",
+      400,
+    );
+  }
+
+  const folder = `users/${auth.user.id}/models/${newAsset.id}`;
   const glbKey = `${folder}/${body.templateKey}.glb`;
 
   await s3Client.send(
     new CopyObjectCommand({
       Bucket: S3_BUCKET,
-      CopySource: `${S3_BUCKET}/${template.glb}`,
+      CopySource: toCopySource(S3_BUCKET, template.glb),
       Key: glbKey,
       ContentType: "model/gltf-binary",
     }),
   );
 
-  return NextResponse.json({ glbKey }, { status: 200 });
+  const { data: modelFile, error: modelFileError } = await supabase
+    .from("asset_files")
+    .insert({
+      asset_id: newAsset.id,
+      owner_id: auth.user.id,
+      file_variant: "original",
+      bucket: S3_BUCKET,
+      object_key: glbKey,
+      filename: `${body.templateKey}.glb`,
+      mime_type: "model/gltf-binary",
+    })
+    .select("id")
+    .single();
+
+  if (modelFileError || !modelFile) {
+    return jsonError(
+      modelFileError?.message ?? "Template model file insert failed",
+      400,
+    );
+  }
+
+  const { error: updateAssetError } = await supabase
+    .from("assets")
+    .update({
+      asset_file_id: modelFile.id,
+      last_updated: nowIso,
+    })
+    .eq("id", newAsset.id);
+
+  if (updateAssetError) {
+    return jsonError(
+      updateAssetError.message ?? "Template asset update failed",
+      400,
+    );
+  }
+
+  return NextResponse.json(
+    { assetId: newAsset.id, modelFileId: modelFile.id },
+    { status: 201 },
+  );
 }

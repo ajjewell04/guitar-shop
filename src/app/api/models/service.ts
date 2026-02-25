@@ -41,10 +41,23 @@ export function mergePosition(
 
 export const TEMPLATE_S3_KEYS = {
   stratocaster: {
+    name: "Stratocaster Template",
     glb: "templates/stratocaster-template/stratocaster-template.glb",
+    preview: "templates/stratocaster-template/preview.png",
+    previewMimeType: "image/png",
   },
-  telecaster: { glb: "templates/telecaster-template/telecaster.glb" },
-  "les-paul": { glb: "templates/lespaul-template/lespaul-template.glb" },
+  telecaster: {
+    name: "Telecaster Template",
+    glb: "templates/telecaster-template/telecaster-template.glb",
+    preview: "templates/telecaster-template/preview.png",
+    previewMimeType: "image/png",
+  },
+  "les-paul": {
+    name: "Les Paul Template",
+    glb: "templates/lespaul-template/lespaul-template.glb",
+    preview: "templates/lespaul-template/preview.png",
+    previewMimeType: "image/png",
+  },
 } as const;
 
 export function toCopySource(bucket: string, key: string) {
