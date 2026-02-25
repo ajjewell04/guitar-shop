@@ -3,42 +3,33 @@ import { supabaseServer } from "@/lib/supabase";
 import { requireUser } from "@/app/api/_shared/auth";
 import { jsonError } from "@/app/api/_shared/http";
 import { signPutObjectUrl } from "@/app/api/_shared/s3";
-
-type Body = { assetId?: string };
+import { PresignModelPreviewBodySchema } from "@/app/api/models/dto";
+import { getOwnedAsset } from "@/app/api/models/service";
 
 export async function POST(req: Request) {
   const supabase = await supabaseServer();
   const auth = await requireUser(supabase);
   if (auth instanceof Response) return auth;
-  const { user } = auth;
 
-  const body = (await req.json().catch(() => null)) as Body | null;
+  const parsed = PresignModelPreviewBodySchema.safeParse(
+    await req.json().catch(() => null),
+  );
+  if (!parsed.success) return jsonError("Invalid request body", 400);
 
-  if (!body?.assetId) {
-    return jsonError("Missing assetId", 400);
+  const { asset, reason } = await getOwnedAsset(
+    supabase,
+    parsed.data.assetId,
+    auth.user.id,
+  );
+  if (!asset) {
+    return reason === "forbidden"
+      ? jsonError("Forbidden", 403)
+      : jsonError("Asset not found", 404);
   }
 
-  const { data: asset, error: assetError } = await supabase
-    .from("assets")
-    .select("id, owner_id, upload_status, preview_file_id")
-    .eq("id", body.assetId)
-    .single();
-
-  if (assetError || !asset) {
-    return jsonError("Asset not found", 404);
-  }
-
-  if (asset.owner_id !== user.id) {
-    return jsonError("Forbidden", 403);
-  }
-
-  if (asset.upload_status !== "approved") {
+  if (asset.upload_status !== "approved")
     return jsonError("Asset is not approved", 400);
-  }
-
-  if (asset.preview_file_id) {
-    return jsonError("Preview already exists", 409);
-  }
+  if (asset.preview_file_id) return jsonError("Preview already exists", 409);
 
   const objectKey = `users/${asset.owner_id}/models/${asset.id}/preview-${crypto.randomUUID()}.png`;
   const contentType = "image/png";

@@ -2,53 +2,49 @@ import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase";
 import { requireUser } from "@/app/api/_shared/auth";
 import { jsonError } from "@/app/api/_shared/http";
-import { signPutObjectUrl, unwrapRelation } from "@/app/api/_shared/s3";
-
-type Body = { projectId?: string };
+import { signPutObjectUrl } from "@/app/api/_shared/s3";
+import { PresignProjectPreviewBodySchema } from "@/app/api/projects/dto";
+import { getOwnedProject } from "@/app/api/projects/service";
 
 export async function POST(req: Request) {
   const supabase = await supabaseServer();
   const auth = await requireUser(supabase);
   if (auth instanceof Response) return auth;
 
-  const { user } = auth;
-  const body = (await req.json().catch(() => null)) as Body | null;
+  const parsed = PresignProjectPreviewBodySchema.safeParse(
+    await req.json().catch(() => null),
+  );
+  if (!parsed.success) return jsonError("Invalid request body", 400);
 
-  if (!body?.projectId) {
-    return jsonError("Missing projectId", 400);
+  const { project, reason } = await getOwnedProject(
+    supabase,
+    parsed.data.projectId,
+    auth.user.id,
+  );
+
+  if (!project) {
+    return reason === "forbidden"
+      ? jsonError("Forbidden", 403)
+      : jsonError("Project not found", 404);
   }
 
-  const { data: project, error: projectError } = await supabase
-    .from("projects")
-    .select(
-      `
-      id,
-      owner_id,
-      preview_file_id,
-      preview_file:asset_files!projects_preview_file_id_fkey (
-        id,
-        object_key
-      )
-    `,
-    )
-    .eq("id", body.projectId)
-    .single();
+  let existingObjectKey: string | null = null;
+  if (project.preview_file_id) {
+    const { data: previewFile, error } = await supabase
+      .from("asset_files")
+      .select("object_key")
+      .eq("id", project.preview_file_id)
+      .maybeSingle<{ object_key: string | null }>();
 
-  if (projectError || !project) {
-    return jsonError("Project not found", 404);
+    if (error) return jsonError(error.message, 400);
+    existingObjectKey = previewFile?.object_key ?? null;
   }
-
-  if (project.owner_id !== user.id) {
-    return jsonError("Forbidden", 403);
-  }
-
-  const previewFile = unwrapRelation(project.preview_file);
 
   const objectKey =
-    previewFile?.object_key ||
-    `users/${user.id}/projects/${project.id}/preview.png`;
-  const contentType = "image/png";
+    existingObjectKey ||
+    `users/${auth.user.id}/projects/${project.id}/preview.png`;
 
+  const contentType = "image/png";
   const url = await signPutObjectUrl({
     objectKey,
     contentType,

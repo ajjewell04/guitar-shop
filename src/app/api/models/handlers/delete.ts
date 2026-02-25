@@ -3,29 +3,29 @@ import { supabaseServer } from "@/lib/supabase";
 import { requireUser } from "@/app/api/_shared/auth";
 import { jsonError } from "@/app/api/_shared/http";
 import { deleteObjectsByBucket } from "@/app/api/_shared/s3";
-
-type DeleteBody = {
-  assetId?: string;
-};
+import { DeleteModelBodySchema } from "@/app/api/models/dto";
+import { getOwnedAsset } from "@/app/api/models/service";
 
 export async function handleDelete(req: Request) {
   const supabase = await supabaseServer();
   const auth = await requireUser(supabase);
   if (auth instanceof Response) return auth;
 
-  const { user } = auth;
-  const body = (await req.json().catch(() => null)) as DeleteBody | null;
+  const parsed = DeleteModelBodySchema.safeParse(
+    await req.json().catch(() => null),
+  );
+  if (!parsed.success) return jsonError("Invalid request body", 400);
 
-  if (!body?.assetId) return jsonError("Missing assetId", 400);
-
-  const { data: asset, error: assetError } = await supabase
-    .from("assets")
-    .select("id, owner_id, asset_file_id, preview_file_id")
-    .eq("id", body.assetId)
-    .single();
-
-  if (assetError || !asset) return jsonError("Asset not found", 404);
-  if (asset.owner_id !== user.id) return jsonError("Forbidden", 403);
+  const { asset, reason } = await getOwnedAsset(
+    supabase,
+    parsed.data.assetId,
+    auth.user.id,
+  );
+  if (!asset) {
+    return reason === "forbidden"
+      ? jsonError("Forbidden", 403)
+      : jsonError("Asset not found", 404);
+  }
 
   const { data: inUseRows, error: inUseError } = await supabase
     .from("project_nodes")
@@ -45,15 +45,17 @@ export async function handleDelete(req: Request) {
 
   if (filesReadError) return jsonError(filesReadError.message, 400);
 
+  const nowIso = new Date().toISOString();
+
   const { error: nullRefsError } = await supabase
     .from("assets")
     .update({
       asset_file_id: null,
       preview_file_id: null,
-      last_updated: new Date().toISOString(),
+      last_updated: nowIso,
     })
     .eq("id", asset.id)
-    .eq("owner_id", user.id);
+    .eq("owner_id", auth.user.id);
 
   if (nullRefsError) return jsonError(nullRefsError.message, 400);
 
@@ -61,37 +63,12 @@ export async function handleDelete(req: Request) {
     .from("asset_files")
     .delete()
     .eq("asset_id", asset.id)
-    .eq("owner_id", user.id)
+    .eq("owner_id", auth.user.id)
     .select("id");
 
-  if (deleteFilesError) {
-    await supabase
-      .from("assets")
-      .update({
-        asset_file_id: asset.asset_file_id,
-        preview_file_id: asset.preview_file_id,
-        last_updated: new Date().toISOString(),
-      })
-      .eq("id", asset.id)
-      .eq("owner_id", user.id);
+  if (deleteFilesError) return jsonError(deleteFilesError.message, 400);
 
-    return jsonError(deleteFilesError.message, 400);
-  }
-
-  const expectedFileCount = files?.length ?? 0;
-  const actualDeletedFileCount = deletedFiles?.length ?? 0;
-
-  if (actualDeletedFileCount !== expectedFileCount) {
-    await supabase
-      .from("assets")
-      .update({
-        asset_file_id: asset.asset_file_id,
-        preview_file_id: asset.preview_file_id,
-        last_updated: new Date().toISOString(),
-      })
-      .eq("id", asset.id)
-      .eq("owner_id", user.id);
-
+  if ((deletedFiles?.length ?? 0) !== (files?.length ?? 0)) {
     return jsonError(
       "Delete blocked by policy: could not delete asset files",
       403,
@@ -102,7 +79,7 @@ export async function handleDelete(req: Request) {
     .from("assets")
     .delete()
     .eq("id", asset.id)
-    .eq("owner_id", user.id)
+    .eq("owner_id", auth.user.id)
     .select("id")
     .maybeSingle();
 

@@ -4,64 +4,59 @@ import { requireUser } from "../../_shared/auth";
 import { jsonError } from "../../_shared/http";
 import { S3_BUCKET } from "@/lib/s3";
 import { signGetFileUrl } from "../../_shared/s3";
-
-type Body = {
-  assetId?: string;
-  previewObjectKey?: string;
-  previewContentType?: string;
-  previewBytes?: number;
-};
+import { UpdateModelPreviewBodySchema } from "@/app/api/models/dto";
+import { getOwnedAsset } from "@/app/api/models/service";
 
 export async function POST(req: Request) {
   const supabase = await supabaseServer();
   const auth = await requireUser(supabase);
   if (auth instanceof Response) return auth;
 
-  const body = (await req.json().catch(() => null)) as Body | null;
-  if (!body?.assetId || !body.previewObjectKey) {
-    return jsonError("Missing assetId/previewObjectKey", 400);
+  const parsed = UpdateModelPreviewBodySchema.safeParse(
+    await req.json().catch(() => null),
+  );
+  if (!parsed.success) return jsonError("Invalid request body", 400);
+
+  const { assetId, previewObjectKey, previewContentType, previewBytes } =
+    parsed.data;
+
+  const { asset, reason } = await getOwnedAsset(
+    supabase,
+    assetId,
+    auth.user.id,
+  );
+  if (!asset) {
+    return reason === "forbidden"
+      ? jsonError("Forbidden", 403)
+      : jsonError("Asset not found", 404);
   }
 
-  const { data: asset, error: assetError } = await supabase
-    .from("assets")
-    .select("id, owner_id, preview_file_id, upload_status")
-    .eq("id", body.assetId)
-    .single();
-
-  if (assetError || !asset) {
-    return jsonError("Asset not found", 404);
-  }
-
-  if (asset.upload_status !== "approved") {
-    return jsonError("Asset is not approved", 404);
-  }
-
-  if (asset.preview_file_id) {
-    return jsonError("Preview already exists", 409);
-  }
+  if (asset.upload_status !== "approved")
+    return jsonError("Asset is not approved", 400);
+  if (asset.preview_file_id) return jsonError("Preview already exists", 409);
 
   const expectedPrefix = `users/${asset.owner_id}/models/${asset.id}/`;
-  if (!body.previewObjectKey.startsWith(expectedPrefix)) {
+  if (!previewObjectKey.startsWith(expectedPrefix)) {
     return jsonError("Invalid previewObjectKey for asset owner", 400);
   }
 
-  const { data: previewFile, error: previewFileError } = await supabase
+  const { data: previewFile, error: previewError } = await supabase
     .from("asset_files")
     .insert({
       asset_id: asset.id,
       owner_id: asset.owner_id,
       bucket: S3_BUCKET,
-      object_key: body.previewObjectKey,
+      object_key: previewObjectKey,
       file_variant: "preview",
-      mime_type: body.previewContentType ?? "image/png",
-      bytes: body.previewBytes ?? null,
+      mime_type: previewContentType ?? "image/png",
+      bytes: previewBytes ?? null,
     })
     .select("id, bucket, object_key, mime_type")
     .single();
 
-  if (previewFileError || !previewFile) {
+  if (previewError || !previewFile) {
     return jsonError(
-      previewFileError?.message ?? "Preview file insert failed",
+      previewError?.message ?? "Preview file insert failed",
       400,
     );
   }
@@ -75,11 +70,8 @@ export async function POST(req: Request) {
     .eq("id", asset.id)
     .is("preview_file_id", null);
 
-  if (updateError) {
-    return jsonError(updateError.message, 400);
-  }
+  if (updateError) return jsonError(updateError.message, 400);
 
   const previewUrl = await signGetFileUrl(previewFile, { expiresIn: 300 });
-
   return NextResponse.json({ ok: true, previewUrl }, { status: 200 });
 }

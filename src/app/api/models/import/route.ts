@@ -3,53 +3,19 @@ import { supabaseServer } from "@/lib/supabase";
 import { S3_BUCKET } from "@/lib/s3";
 import { requireUser } from "../../_shared/auth";
 import { jsonError } from "../../_shared/http";
-
-type PartType =
-  | "body"
-  | "neck"
-  | "headstock"
-  | "bridge"
-  | "tuning_machine"
-  | "pickup"
-  | "pickguard"
-  | "knob"
-  | "switch"
-  | "strap_button"
-  | "output_jack"
-  | "miscellaneous";
-
-type ImportBody = {
-  objectKey?: string;
-  filename?: string;
-  contentType?: string;
-  bytes?: number;
-  assetName?: string;
-  partType?: PartType;
-  previewObjectKey?: string;
-  previewContentType?: string;
-  previewBytes?: number;
-};
+import { ImportModelBodySchema } from "@/app/api/models/dto";
 
 export async function POST(req: Request) {
   const supabase = await supabaseServer();
   const auth = await requireUser(supabase);
   if (auth instanceof Response) return auth;
 
-  const { user } = auth;
-  const body = (await req.json().catch(() => null)) as ImportBody | null;
+  const parsed = ImportModelBodySchema.safeParse(
+    await req.json().catch(() => null),
+  );
+  if (!parsed.success) return jsonError("Invalid request body", 400);
 
-  if (!body?.objectKey || !body.filename) {
-    return jsonError("Missing objectKey/filename", 400);
-  }
-
-  if (!body.assetName?.trim() || !body.partType) {
-    return jsonError("Missing assetName/partType", 400);
-  }
-
-  if (!body.previewObjectKey) {
-    return jsonError("Missing previewObjectKey", 400);
-  }
-
+  const body = parsed.data;
   const nowIso = new Date().toISOString();
 
   const { data: asset, error: assetError } = await supabase
@@ -57,7 +23,7 @@ export async function POST(req: Request) {
     .insert({
       name: body.assetName.trim(),
       part_type: body.partType,
-      owner_id: user.id,
+      owner_id: auth.user.id,
       upload_date: nowIso,
       meta: { source: "import" },
     })
@@ -73,16 +39,16 @@ export async function POST(req: Request) {
     .insert([
       {
         asset_id: asset.id,
-        owner_id: user.id,
+        owner_id: auth.user.id,
         bucket: S3_BUCKET,
         object_key: body.objectKey,
         file_variant: "original",
         mime_type: body.contentType ?? "model/gltf-binary",
-        bytes: body.bytes,
+        bytes: body.bytes ?? null,
       },
       {
         asset_id: asset.id,
-        owner_id: user.id,
+        owner_id: auth.user.id,
         bucket: S3_BUCKET,
         object_key: body.previewObjectKey,
         file_variant: "preview",
@@ -103,7 +69,7 @@ export async function POST(req: Request) {
     return jsonError("Both original and preview files must be inserted", 400);
   }
 
-  const { data: updated, error: assetUpdateError } = await supabase
+  const { data: updated, error: updateError } = await supabase
     .from("assets")
     .update({
       asset_file_id: originalFile.id,
@@ -111,16 +77,19 @@ export async function POST(req: Request) {
       last_updated: nowIso,
     })
     .eq("id", asset.id)
-    .select("id, asset_file_id, preview_file_id")
+    .select("id")
     .single();
 
-  if (assetUpdateError || !updated) {
-    return jsonError(assetUpdateError?.message ?? "Asset update failed", 400);
+  if (updateError || !updated) {
+    return jsonError(updateError?.message ?? "Asset update failed", 400);
   }
 
-  return NextResponse.json({
-    assetId: asset.id,
-    originalFileId: originalFile.id,
-    previewFileId: previewFile.id,
-  });
+  return NextResponse.json(
+    {
+      assetId: asset.id,
+      originalFileId: originalFile.id,
+      previewFileId: previewFile.id,
+    },
+    { status: 200 },
+  );
 }
