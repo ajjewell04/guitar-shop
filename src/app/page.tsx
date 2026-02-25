@@ -4,17 +4,29 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import React from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import Image from "next/image";
+import {
+  saveProjectPreview,
+  toPreviewNodes,
+} from "@/lib/project-preview-client";
 
 type ProjectRow = {
-  previewUrl: string | undefined;
+  previewUrl: string | null;
   id: string;
   owner_id: string;
   name: string;
   created_on: string;
   last_updated: string;
+};
+
+type ProjectNodesPayload = {
+  nodes?: Array<{
+    transforms?: { position?: { x: number; y: number; z: number } } | null;
+    asset?: { modelUrl?: string | null } | null;
+  }>;
+  error?: string;
 };
 
 export default function Home({
@@ -26,10 +38,13 @@ export default function Home({
   const [deletingProjectId, setDeletingProjectId] = useState<string | null>(
     null,
   );
+  const attemptedRegenerationRef = useRef<Set<string>>(new Set());
+  const inFlightRegenerationRef = useRef<Set<string>>(new Set());
+
   const searchParams = useSearchParams();
   const q = (searchParams.get("q") ?? "").toLowerCase().trim();
 
-  const loadProjects = async () => {
+  const loadProjects = useCallback(async () => {
     const res = await fetch("/api/projects", { cache: "no-store" });
     const payload = await res.json().catch(() => ({}));
 
@@ -40,11 +55,74 @@ export default function Home({
     }
     setError(null);
     setProjects((payload.projects ?? []) as ProjectRow[]);
+  }, []);
+
+  const regenerateProjectPreview = async (projectId: string, force = false) => {
+    if (inFlightRegenerationRef.current.has(projectId)) return;
+    if (!force && attemptedRegenerationRef.current.has(projectId)) return;
+
+    attemptedRegenerationRef.current.add(projectId);
+    inFlightRegenerationRef.current.add(projectId);
+
+    try {
+      const res = await fetch(`/api/project-nodes?projectId=${projectId}`, {
+        cache: "no-store",
+      });
+      const payload = (await res
+        .json()
+        .catch(() => ({}))) as ProjectNodesPayload;
+      if (!res.ok) {
+        throw new Error(payload?.error ?? "Failed to load nodes for preview");
+      }
+
+      const previewNodes = toPreviewNodes(payload.nodes ?? []);
+      if (!previewNodes.length) return;
+
+      await saveProjectPreview(projectId, previewNodes);
+      await loadProjects();
+      window.dispatchEvent(new Event("projects-changed"));
+    } catch {
+      // Best effort background regeneration
+    } finally {
+      inFlightRegenerationRef.current.delete(projectId);
+    }
   };
 
   useEffect(() => {
-    loadProjects();
-  }, []);
+    const missingPreviewIds = projects
+      .filter((p) => !p.previewUrl)
+      .map((p) => p.id);
+
+    if (!missingPreviewIds.length) return;
+
+    let cancelled = false;
+
+    const run = async () => {
+      for (const projectId of missingPreviewIds) {
+        if (cancelled) break;
+        await regenerateProjectPreview(projectId);
+      }
+    };
+
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, [projects]);
+
+  useEffect(() => {
+    void loadProjects();
+
+    const onProjectsChanged = () => {
+      void loadProjects();
+    };
+
+    window.addEventListener("projects-changed", onProjectsChanged);
+
+    return () => {
+      window.removeEventListener("projects-changed", onProjectsChanged);
+    };
+  }, [loadProjects]);
 
   const onDelete = async (projectId: string) => {
     setError(null);
@@ -117,6 +195,16 @@ export default function Home({
                       alt={`${project.name} preview`}
                       fill={true}
                       className="object-cover"
+                      onError={() => {
+                        setProjects((prev) =>
+                          prev.map((p) =>
+                            p.id === project.id
+                              ? { ...p, previewUrl: null }
+                              : p,
+                          ),
+                        );
+                        void regenerateProjectPreview(project.id, true);
+                      }}
                     />
                   ) : (
                     <div className="flex h-full items-center justify-center text-sm text-muted-foreground">

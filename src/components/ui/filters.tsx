@@ -194,15 +194,6 @@ function PartFilters({
         />
         {isActive("output_jack") && "Output Jacks"}
       </Button>
-      <Button className="flex items-center" type="button">
-        <Image
-          src="/icons/filter.png"
-          alt="Filter"
-          width={24}
-          height={24}
-          className="invert"
-        />
-      </Button>
       <Button
         className="flex items-center"
         type="button"

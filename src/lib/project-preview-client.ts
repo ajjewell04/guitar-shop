@@ -1,0 +1,64 @@
+"use client";
+
+import type { PreviewNodeInput } from "@/lib/project-preview";
+
+type NodeLike = {
+  transforms?: { position?: { x: number; y: number; z: number } } | null;
+  asset?: { modelUrl?: string | null } | null;
+};
+
+export function toPreviewNodes(nodes: NodeLike[]): PreviewNodeInput[] {
+  return nodes
+    .filter((node) => !!node.asset?.modelUrl)
+    .map((node) => ({
+      modelUrl: node.asset!.modelUrl!,
+      position: node.transforms?.position ?? { x: 0, y: 0, z: 0 },
+    }));
+}
+
+export async function saveProjectPreview(
+  projectId: string,
+  nodes: PreviewNodeInput[],
+): Promise<{ previewUrl: string | null }> {
+  if (!projectId) throw new Error("Missing projectId");
+  if (!nodes.length) return { previewUrl: null };
+
+  const { renderProjectPreview } = await import("@/lib/project-preview");
+  const previewBlob = await renderProjectPreview(nodes);
+
+  const presignRes = await fetch("/api/projects/preview/presign", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ projectId }),
+  });
+  const presignData = await presignRes.json().catch(() => ({}));
+  if (!presignRes.ok) {
+    throw new Error(presignData?.error ?? "Project preview presign failed");
+  }
+
+  const putRes = await fetch(presignData.url, {
+    method: "PUT",
+    headers: { "Content-Type": presignData.contentType ?? "image/png" },
+    body: previewBlob,
+  });
+  if (!putRes.ok) {
+    throw new Error("Project preview upload failed");
+  }
+
+  const finalizeRes = await fetch("/api/projects/preview", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      projectId,
+      previewObjectKey: presignData.objectKey,
+      previewContentType: presignData.contentType ?? "image/png",
+      previewBytes: previewBlob.size,
+    }),
+  });
+  const finalizeData = await finalizeRes.json().catch(() => ({}));
+  if (!finalizeRes.ok) {
+    throw new Error(finalizeData?.error ?? "Project preview finalize failed");
+  }
+
+  return { previewUrl: finalizeData.previewUrl ?? null };
+}

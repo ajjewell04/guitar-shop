@@ -64,39 +64,6 @@ export async function DELETE(req: Request) {
     return NextResponse.json({ error: "Project not found" }, { status: 404 });
   }
 
-  /*const { data: nodes, error: nodeError } = await supabase
-    .from("project_nodes")
-    .select("asset_id")
-    .eq("project_id", body.id);
-
-  if (nodeError) {
-    return NextResponse.json({ error: nodeError?.message }, { status: 400 });
-  }
-
-  const assetIds = [
-    ...new Set(
-      (nodes ?? [])
-        .map((node) => node.asset_id)
-        .filter((id): id is string => typeof id === "string"),
-    ),
-  ];
-
-  let files: Array<{ bucket: string | null; object_key: string | null }> = [];
-  if (assetIds.length > 0) {
-    const { data: assetFiles, error: assetFileError } = await supabase
-      .from("asset_files")
-      .select("bucket, object_key")
-      .in("asset_id", assetIds);
-
-    if (assetFileError) {
-      return NextResponse.json(
-        { error: assetFileError?.message },
-        { status: 400 },
-      );
-    }
-    files = assetFiles ?? [];
-  }*/
-
   const { error: deleteFilesError } = await supabase
     .from("projects")
     .delete()
@@ -109,17 +76,6 @@ export async function DELETE(req: Request) {
       { status: 400 },
     );
   }
-
-  /*if (files.length > 0) {
-    try {
-      await deleteFromS3(files);
-    } catch {
-      return NextResponse.json(
-        { ok: true, error: "Project deleted, but S3 deletion failed" },
-        { status: 200 },
-      );
-    }
-  }*/
 
   return NextResponse.json({ ok: true }, { status: 200 });
 }
@@ -192,26 +148,21 @@ export async function GET(req: Request) {
   if (!user)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { data, error } = await supabase
+  const { data: projectsData, error } = await supabase
     .from("projects")
     .select(
       `
-        id,
-        owner_id,
-        name,
-        created_on,
-        last_updated,
-        root_node_id,
-        root_node:project_nodes!projects_root_node_id_fkey (
-          asset:assets!project_nodes_asset_id_fkey (
-          id,
-          preview_file:asset_files!assets_preview_file_id_fkey (
-            bucket,
-            object_key,
-            mime_type
-          )
-        )
-      )`,
+      id,
+      owner_id,
+      name,
+      created_on,
+      last_updated,
+      preview_file:asset_files!projects_preview_file_id_fkey (
+        bucket,
+        object_key,
+        mime_type
+      )
+    `,
     )
     .eq("owner_id", user.id)
     .order("last_updated", { ascending: false });
@@ -221,12 +172,11 @@ export async function GET(req: Request) {
   }
 
   const projects = await Promise.all(
-    (data ?? []).map(async (project) => {
-      const rawPreview = project.root_node?.asset?.preview_file;
-      const previewFile = Array.isArray(rawPreview)
-        ? rawPreview[0]
-        : rawPreview;
-      const previewUrl = await signFileUrl(previewFile);
+    (projectsData ?? []).map(async (project) => {
+      const rawPreview = project.preview_file;
+      const preview = Array.isArray(rawPreview) ? rawPreview[0] : rawPreview;
+      const previewUrl = await signFileUrl(preview);
+
       return {
         id: project.id,
         owner_id: project.owner_id,

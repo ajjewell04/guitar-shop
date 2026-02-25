@@ -30,7 +30,8 @@ type ApprovedAssetRow = {
     | "switch"
     | "strap_button"
     | "output_jack"
-    | "miscellaneous";
+    | "miscellaneous"
+    | null;
   upload_date: string;
   upload_status: "pending" | "approved" | "rejected" | null;
   previewUrl?: string;
@@ -238,10 +239,10 @@ export default function CommunityLibraryView({
 
     if (q) {
       rows = rows.filter((asset) => {
-        const partLabel = asset.part_type.replace(/_/g, " ");
+        const partLabel = asset.part_type?.replace(/_/g, " ");
         return (
           asset.name.toLowerCase().includes(q) ||
-          partLabel.toLowerCase().includes(q)
+          partLabel?.toLowerCase().includes(q)
         );
       });
     }
@@ -308,7 +309,7 @@ export default function CommunityLibraryView({
                         <Image
                           src={asset.previewUrl}
                           alt={`${asset.name} preview`}
-                          fill
+                          fill={true}
                           className="object-cover"
                         />
                       ) : (
@@ -319,7 +320,7 @@ export default function CommunityLibraryView({
                     </div>
                     <div>
                       <CardDescription className="capitalize">
-                        {asset.part_type.replace("_", " ")}
+                        {asset.part_type?.replace("_", " ")}
                       </CardDescription>
                       <div className="mt-3 text-sm text-muted-foreground">
                         Uploaded on{" "}
