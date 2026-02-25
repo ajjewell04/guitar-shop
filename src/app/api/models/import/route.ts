@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase";
 import { S3_BUCKET } from "@/lib/s3";
+import { requireUser } from "../../_shared/auth";
+import { jsonError } from "../../_shared/http";
 
 type PartType =
   | "body"
@@ -30,43 +32,22 @@ type ImportBody = {
 
 export async function POST(req: Request) {
   const supabase = await supabaseServer();
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser();
+  const auth = await requireUser(supabase);
+  if (auth instanceof Response) return auth;
 
-  if (userError || !user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const { user } = auth;
+  const body = (await req.json().catch(() => null)) as ImportBody | null;
 
-  const body = (await req.json()) as ImportBody;
-
-  if (!body.objectKey || !body.filename) {
-    return NextResponse.json(
-      { error: "Missing objectKey/filename" },
-      { status: 400 },
-    );
+  if (!body?.objectKey || !body.filename) {
+    return jsonError("Missing objectKey/filename", 400);
   }
 
   if (!body.assetName?.trim() || !body.partType) {
-    return NextResponse.json(
-      { error: "Missing assetName/partType" },
-      { status: 400 },
-    );
-  }
-
-  if (!body.assetName?.trim() || !body.partType) {
-    return NextResponse.json(
-      { error: "Missing assetName/partType" },
-      { status: 400 },
-    );
+    return jsonError("Missing assetName/partType", 400);
   }
 
   if (!body.previewObjectKey) {
-    return NextResponse.json(
-      { error: "Missing previewObjectKey" },
-      { status: 400 },
-    );
+    return jsonError("Missing previewObjectKey", 400);
   }
 
   const nowIso = new Date().toISOString();
@@ -84,10 +65,7 @@ export async function POST(req: Request) {
     .single();
 
   if (assetError || !asset) {
-    return NextResponse.json(
-      { error: assetError?.message ?? "Asset insert failed" },
-      { status: 400 },
-    );
+    return jsonError(assetError?.message ?? "Asset insert failed", 400);
   }
 
   const { data: files, error: fileError } = await supabase
@@ -115,20 +93,14 @@ export async function POST(req: Request) {
     .select("id, file_variant");
 
   if (fileError || !files?.length) {
-    return NextResponse.json(
-      { error: fileError?.message ?? "Asset files insert failed" },
-      { status: 400 },
-    );
+    return jsonError(fileError?.message ?? "Asset files insert failed", 400);
   }
 
   const originalFile = files.find((f) => f.file_variant === "original");
   const previewFile = files.find((f) => f.file_variant === "preview");
 
   if (!originalFile || !previewFile) {
-    return NextResponse.json(
-      { error: "Both original and preview files must be inserted" },
-      { status: 400 },
-    );
+    return jsonError("Both original and preview files must be inserted", 400);
   }
 
   const { data: updated, error: assetUpdateError } = await supabase
@@ -143,10 +115,7 @@ export async function POST(req: Request) {
     .single();
 
   if (assetUpdateError || !updated) {
-    return NextResponse.json(
-      { error: assetUpdateError?.message ?? "Asset update failed" },
-      { status: 400 },
-    );
+    return jsonError(assetUpdateError?.message ?? "Asset update failed", 400);
   }
 
   return NextResponse.json({

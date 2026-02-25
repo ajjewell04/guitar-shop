@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
-import { GetObjectCommand } from "@aws-sdk/client-s3";
-import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import { s3Client, S3_BUCKET } from "@/lib/s3";
 import { supabaseServer } from "@/lib/supabase";
+import { S3_BUCKET } from "@/lib/s3";
+import { requireUser } from "../../_shared/auth";
+import { jsonError } from "../../_shared/http";
+import { signGetFileUrl } from "../../_shared/s3";
 
 type Body = {
   projectId?: string;
@@ -11,40 +12,16 @@ type Body = {
   previewBytes?: number;
 };
 
-async function signFileUrl(file?: {
-  bucket?: string | null;
-  object_key?: string | null;
-  mime_type?: string | null;
-}) {
-  if (!file?.object_key) return null;
-  return getSignedUrl(
-    s3Client,
-    new GetObjectCommand({
-      Bucket: file.bucket ?? S3_BUCKET,
-      Key: file.object_key,
-      ResponseContentType: file.mime_type ?? undefined,
-    }),
-    { expiresIn: 300 },
-  );
-}
-
 export async function POST(req: Request) {
   const supabase = await supabaseServer();
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser();
+  const auth = await requireUser(supabase);
+  if (auth instanceof Response) return auth;
 
-  if (userError || !user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
+  const { user } = auth;
   const body = (await req.json().catch(() => null)) as Body | null;
+
   if (!body?.projectId || !body.previewObjectKey) {
-    return NextResponse.json(
-      { error: "Missing projectId/previewObjectKey" },
-      { status: 400 },
-    );
+    return jsonError("Missing projectId/previewObjectKey", 400);
   }
 
   const { data: project, error: projectError } = await supabase
@@ -54,10 +31,10 @@ export async function POST(req: Request) {
     .single();
 
   if (projectError || !project) {
-    return NextResponse.json({ error: "Project not found" }, { status: 404 });
+    return jsonError("Project not found", 404);
   }
   if (project.owner_id !== user.id) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    return jsonError("Forbidden", 403);
   }
 
   const nowIso = new Date().toISOString();
@@ -79,20 +56,17 @@ export async function POST(req: Request) {
       .maybeSingle();
 
     if (updateError) {
-      return NextResponse.json({ error: updateError.message }, { status: 400 });
+      return jsonError(updateError.message, 400);
     }
 
     if (!updatedFile) {
-      return NextResponse.json(
-        {
-          error:
-            "Existing preview file could not be updated (RLS or missing row)",
-        },
-        { status: 403 },
+      return jsonError(
+        "Existing preview file could not be updated (RLS or missing row)",
+        403,
       );
     }
 
-    const previewUrl = await signFileUrl(updatedFile);
+    const previewUrl = await signGetFileUrl(updatedFile, { expiresIn: 300 });
     return NextResponse.json({ ok: true, previewUrl }, { status: 200 });
   }
 
@@ -111,10 +85,7 @@ export async function POST(req: Request) {
     .single();
 
   if (insertError || !insertedFile) {
-    return NextResponse.json(
-      { error: insertError?.message ?? "Preview file insert failed" },
-      { status: 400 },
-    );
+    return jsonError(insertError?.message ?? "Preview file insert failed", 400);
   }
 
   const { data: updatedProject, error: projectUpdateError } = await supabase
@@ -129,19 +100,13 @@ export async function POST(req: Request) {
     .maybeSingle();
 
   if (projectUpdateError) {
-    return NextResponse.json(
-      { error: projectUpdateError.message },
-      { status: 400 },
-    );
+    return jsonError(projectUpdateError.message, 400);
   }
 
   if (!updatedProject) {
-    return NextResponse.json(
-      { error: "Project preview_file_id update was blocked (RLS)" },
-      { status: 403 },
-    );
+    return jsonError("Project preview_file_id update was blocked (RLS)", 403);
   }
 
-  const previewUrl = await signFileUrl(insertedFile);
+  const previewUrl = await signGetFileUrl(insertedFile, { expiresIn: 300 });
   return NextResponse.json({ ok: true, previewUrl }, { status: 200 });
 }

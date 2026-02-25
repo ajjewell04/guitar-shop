@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
-import { GetObjectCommand } from "@aws-sdk/client-s3";
-import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import { s3Client, S3_BUCKET } from "@/lib/s3";
 import { supabaseServer } from "@/lib/supabase";
+import { requireUser } from "../../_shared/auth";
+import { jsonError } from "../../_shared/http";
+import { S3_BUCKET } from "@/lib/s3";
+import { signGetFileUrl } from "../../_shared/s3";
 
 type Body = {
   assetId?: string;
@@ -11,40 +12,14 @@ type Body = {
   previewBytes?: number;
 };
 
-async function signFileUrl(file?: {
-  bucket?: string | null;
-  object_key?: string | null;
-  mime_type?: string | null;
-}) {
-  if (!file?.object_key) return null;
-  return getSignedUrl(
-    s3Client,
-    new GetObjectCommand({
-      Bucket: file.bucket ?? S3_BUCKET,
-      Key: file.object_key,
-      ResponseContentType: file.mime_type ?? undefined,
-    }),
-    { expiresIn: 300 },
-  );
-}
-
 export async function POST(req: Request) {
   const supabase = await supabaseServer();
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser();
+  const auth = await requireUser(supabase);
+  if (auth instanceof Response) return auth;
 
-  if (userError || !user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const body = (await req.json()) as Body;
-  if (!body.assetId || !body.previewObjectKey) {
-    return NextResponse.json(
-      { error: "Missing assetId/previewObjectKey" },
-      { status: 400 },
-    );
+  const body = (await req.json().catch(() => null)) as Body | null;
+  if (!body?.assetId || !body.previewObjectKey) {
+    return jsonError("Missing assetId/previewObjectKey", 400);
   }
 
   const { data: asset, error: assetError } = await supabase
@@ -54,29 +29,20 @@ export async function POST(req: Request) {
     .single();
 
   if (assetError || !asset) {
-    return NextResponse.json({ error: "Asset not found" }, { status: 404 });
+    return jsonError("Asset not found", 404);
   }
 
   if (asset.upload_status !== "approved") {
-    return NextResponse.json(
-      { error: "Asset is not approved" },
-      { status: 404 },
-    );
+    return jsonError("Asset is not approved", 404);
   }
 
   if (asset.preview_file_id) {
-    return NextResponse.json(
-      { error: "Preview already exists" },
-      { status: 409 },
-    );
+    return jsonError("Preview already exists", 409);
   }
 
   const expectedPrefix = `users/${asset.owner_id}/models/${asset.id}/`;
   if (!body.previewObjectKey.startsWith(expectedPrefix)) {
-    return NextResponse.json(
-      { error: "Invalid previewObjectKey for asset owner" },
-      { status: 400 },
-    );
+    return jsonError("Invalid previewObjectKey for asset owner", 400);
   }
 
   const { data: previewFile, error: previewFileError } = await supabase
@@ -94,9 +60,9 @@ export async function POST(req: Request) {
     .single();
 
   if (previewFileError || !previewFile) {
-    return NextResponse.json(
-      { error: previewFileError?.message ?? "Preview file insert failed" },
-      { status: 400 },
+    return jsonError(
+      previewFileError?.message ?? "Preview file insert failed",
+      400,
     );
   }
 
@@ -110,9 +76,10 @@ export async function POST(req: Request) {
     .is("preview_file_id", null);
 
   if (updateError) {
-    return NextResponse.json({ error: updateError.message }, { status: 400 });
+    return jsonError(updateError.message, 400);
   }
 
-  const previewUrl = await signFileUrl(previewFile);
+  const previewUrl = await signGetFileUrl(previewFile, { expiresIn: 300 });
+
   return NextResponse.json({ ok: true, previewUrl }, { status: 200 });
 }

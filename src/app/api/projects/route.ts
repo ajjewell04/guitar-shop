@@ -1,4 +1,7 @@
-import { NextResponse } from "next/server";
+export { handleGet as GET } from "@/app/api/projects/handlers/get";
+export { handlePost as POST } from "@/app/api/projects/handlers/post";
+export { handleDelete as DELETE } from "@/app/api/projects/handlers/delete";
+/*import { NextResponse } from "next/server";
 import { createClient } from "@/lib/server";
 import { z } from "zod";
 import { DeleteObjectsCommand, GetObjectCommand } from "@aws-sdk/client-s3";
@@ -189,4 +192,4 @@ export async function GET(req: Request) {
   );
 
   return NextResponse.json({ projects }, { status: 200 });
-}
+}*/

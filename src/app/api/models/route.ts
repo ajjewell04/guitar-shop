@@ -1,4 +1,9 @@
-import { NextResponse } from "next/server";
+export { handleGet as GET } from "@/app/api/models/handlers/get";
+export { handlePost as POST } from "@/app/api/models/handlers/post";
+export { handleDelete as DELETE } from "@/app/api/models/handlers/delete";
+export { handlePatch as PATCH } from "@/app/api/models/handlers/patch";
+
+/*import { NextResponse } from "next/server";
 import {
   CopyObjectCommand,
   DeleteObjectsCommand,
@@ -742,4 +747,4 @@ export async function PATCH(req: Request) {
   }
 
   return NextResponse.json({ ok: true, transforms: nextTransforms });
-}
+}*/

@@ -1,25 +1,20 @@
 import { NextResponse } from "next/server";
-import { GetObjectCommand } from "@aws-sdk/client-s3";
-import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import { s3Client, S3_BUCKET } from "@/lib/s3";
 import { supabaseServer } from "@/lib/supabase";
+import { requireUser } from "../../_shared/auth";
+import { jsonError } from "../../_shared/http";
+import { signGetFileUrl, unwrapRelation } from "../../_shared/s3";
 
 export async function GET(req: Request) {
   const supabase = await supabaseServer();
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser();
+  const auth = await requireUser(supabase);
+  if (auth instanceof Response) return auth;
 
-  if (userError || !user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
+  const { user } = auth;
   const { searchParams } = new URL(req.url);
   const projectId = searchParams.get("projectId");
 
   if (!projectId) {
-    return NextResponse.json({ error: "Missing projectId" }, { status: 400 });
+    return jsonError("Missing projectId", 400);
   }
 
   const { data: project, error } = await supabase
@@ -32,7 +27,7 @@ export async function GET(req: Request) {
           id,
           asset:assets!project_nodes_asset_id_fkey (
             id,
-            asset_file:asset_files!asset_asset_file_id_fkey (
+            asset_file:asset_files!assets_asset_file_id_fkey (
               id,
               bucket,
               object_key,
@@ -47,31 +42,25 @@ export async function GET(req: Request) {
     .single();
 
   if (error || !project) {
-    return NextResponse.json(
-      { error: error?.message ?? "Project not found" },
-      { status: 404 },
-    );
+    return jsonError(error?.message ?? "Project not found", 404);
   }
 
-  const rawFile = project.root_node?.asset?.asset_file;
-  const file = Array.isArray(rawFile) ? rawFile[0] : rawFile;
+  const file = unwrapRelation(project.root_node?.asset?.asset_file);
 
   if (!file?.object_key) {
-    return NextResponse.json({ error: "No model file found" }, { status: 404 });
+    return jsonError("No model file found", 404);
   }
 
   const filename = file.object_key.split("/").pop() ?? "model.glb";
 
-  const url = await getSignedUrl(
-    s3Client,
-    new GetObjectCommand({
-      Bucket: file.bucket ?? S3_BUCKET,
-      Key: file.object_key,
-      ResponseContentType: file.mime_type ?? undefined,
-      ResponseContentDisposition: `attachment; filename="${filename}"`,
-    }),
-    { expiresIn: 60 },
-  );
+  const url = await signGetFileUrl(file, {
+    expiresIn: 60,
+    contentDisposition: `attachment; filename="${filename}"`,
+  });
+
+  if (!url) {
+    return jsonError("Failed to create download URL", 500);
+  }
 
   return NextResponse.redirect(url);
 }
