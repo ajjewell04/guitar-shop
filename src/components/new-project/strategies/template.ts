@@ -14,7 +14,10 @@ export const templateStrategy: ProjectCreationStrategy = {
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ templateKey: state.templateType }),
+        body: JSON.stringify({
+          mode: "template",
+          templateKey: state.templateType,
+        }),
       },
       "Template asset create failed",
     );

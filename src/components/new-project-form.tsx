@@ -19,7 +19,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { renderModelPreview } from "@/lib/model-preview";
 
@@ -34,6 +34,11 @@ import type { NewProjectFormState } from "@/components/new-project/utils";
 
 type NewProjectFormProps = React.ComponentPropsWithoutRef<"div"> & {
   onSuccess?: () => void;
+};
+
+type TemplatePreviewsResponse = {
+  previews?: Partial<Record<TemplateType, string | null>>;
+  error?: string;
 };
 
 export function NewProjectForm({
@@ -51,6 +56,15 @@ export function NewProjectForm({
   const [isImporting, setIsImporting] = useState(false);
   const [assetName, setAssetName] = useState("");
   const [partType, setPartType] = useState<PartType | "">("");
+  const [templatePreviews, setTemplatePreviews] = useState<
+    Partial<Record<TemplateType, string>>
+  >({});
+  const [templatePreviewError, setTemplatePreviewError] = useState<
+    string | null
+  >(null);
+  const [brokenPreview, setBrokenPreview] = useState<
+    Partial<Record<TemplateType, boolean>>
+  >({});
 
   async function onImportFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     setError(null);
@@ -119,6 +133,48 @@ export function NewProjectForm({
       setIsSubmitting(false);
     }
   }
+
+  useEffect(() => {
+    let active = true;
+
+    const loadTemplatePreviews = async () => {
+      try {
+        const res = await fetch("/api/models/templates", { cache: "no-store" });
+        const payload = (await res
+          .json()
+          .catch(() => ({}))) as TemplatePreviewsResponse;
+
+        if (!res.ok) {
+          throw new Error(payload.error ?? "Failed to load template previews");
+        }
+
+        if (!active) return;
+
+        const next: Partial<Record<TemplateType, string>> = {};
+        (
+          Object.entries(payload.previews ?? {}) as Array<
+            [TemplateType, string | null | undefined]
+          >
+        ).forEach(([key, value]) => {
+          if (value) next[key] = value;
+        });
+
+        setTemplatePreviews(next);
+        setTemplatePreviewError(null);
+      } catch (e) {
+        if (!active) return;
+        setTemplatePreviewError(
+          e instanceof Error ? e.message : "Template previews unavailable",
+        );
+      }
+    };
+
+    void loadTemplatePreviews();
+    return () => {
+      active = false;
+    };
+  }, []);
+
   return (
     <div className={cn(className)} {...props}>
       <Card>
@@ -228,72 +284,66 @@ export function NewProjectForm({
                 </div>
               )}
               {projectType === "template" && (
-                <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  <Button
-                    type="button"
-                    variant={
-                      templateType === "stratocaster" ? "secondary" : "outline"
-                    }
-                    onClick={() => setTemplateType("stratocaster")}
-                    className="cursor-pointer h-auto p-2"
-                  >
-                    <div className="relative h-24 w-full overflow-hidden rounded-md">
-                      <Image
-                        src="/thumbnails/stratocaster-template.jpg"
-                        alt="Stratocaster"
-                        fill
-                        className="object-cover"
-                      />
-                      <div className="absolute inset-0 bg-black/20" />
-                      <span className="relative z-10 font-bold text-(--primary)">
-                        Stratocaster
-                      </span>
-                    </div>
-                  </Button>
-                  <Button
-                    type="button"
-                    variant={
-                      templateType === "telecaster" ? "secondary" : "outline"
-                    }
-                    onClick={() => setTemplateType("telecaster")}
-                    className="cursor-pointer h-auto p-2"
-                  >
-                    <div className="relative h-24 w-full overflow-hidden rounded-md">
-                      <Image
-                        src="/thumbnails/telecaster-template.jpg"
-                        alt="Telecaster"
-                        fill
-                        className="object-cover"
-                      />
-                      <div className="absolute inset-0 bg-black/20" />
-                      <span className="relative z-10 font-bold text-(--primary)">
-                        Telecaster
-                      </span>
-                    </div>
-                  </Button>
-                  <Button
-                    type="button"
-                    variant={
-                      templateType === "les-paul" ? "secondary" : "outline"
-                    }
-                    onClick={() => setTemplateType("les-paul")}
-                    className="cursor-pointer h-auto p-2"
-                  >
-                    <div className="relative h-24 w-full overflow-hidden rounded-md">
-                      <Image
-                        src="/thumbnails/lespaul-template.jpg"
-                        alt="Les Paul"
-                        fill
-                        className="object-cover"
-                      />
-                      <div className="absolute inset-0 bg-black/20" />
-                      <span className="relative z-10 font-bold text-(--primary)">
-                        Les Paul
-                      </span>
-                    </div>
-                  </Button>
+                <div className="mt-4">
+                  {templatePreviewError && (
+                    <p className="mb-3 text-sm text-red-500">
+                      {templatePreviewError}
+                    </p>
+                  )}
+
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    {[
+                      { id: "stratocaster" as const, label: "Stratocaster" },
+                      { id: "telecaster" as const, label: "Telecaster" },
+                      { id: "les-paul" as const, label: "Les Paul" },
+                    ].map((template) => {
+                      const src = templatePreviews[template.id];
+                      const failed = brokenPreview[template.id] || !src;
+
+                      return (
+                        <Button
+                          key={template.id}
+                          type="button"
+                          variant={
+                            templateType === template.id
+                              ? "secondary"
+                              : "outline"
+                          }
+                          onClick={() => setTemplateType(template.id)}
+                          className="cursor-pointer h-auto p-2"
+                        >
+                          <div className="relative h-24 w-full overflow-hidden rounded-md">
+                            {!failed ? (
+                              <Image
+                                src={src}
+                                alt={template.label}
+                                fill
+                                className="object-cover"
+                                onError={() =>
+                                  setBrokenPreview((prev) => ({
+                                    ...prev,
+                                    [template.id]: true,
+                                  }))
+                                }
+                              />
+                            ) : (
+                              <div className="flex h-full w-full items-center justify-center bg-black/20 text-xs text-muted-foreground">
+                                Preview unavailable
+                              </div>
+                            )}
+
+                            <div className="absolute inset-0 bg-black/20" />
+                            <span className="relative z-10 font-bold text-(--primary)">
+                              {template.label}
+                            </span>
+                          </div>
+                        </Button>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
+
               {error && <p className="flex justify-center">{error}</p>}
               <Button
                 type="submit"

@@ -107,14 +107,14 @@ export async function handlePost(req: Request) {
   }
 
   const template = body.templateKey ? TEMPLATE_S3_KEYS[body.templateKey] : null;
-  if (!template?.glb) return jsonError("Invalid templateKey", 400);
+  if (!template?.glb || !template.preview)
+    return jsonError("Invalid templateKey", 400);
 
-  const nowIso = new Date().toISOString();
-
+  const nowIso = new Date().toISOString;
   const { data: newAsset, error: newAssetError } = await supabase
     .from("assets")
     .insert({
-      name: template.name,
+      name: `${body.templateKey} template`,
       owner_id: auth.user.id,
       upload_status: null,
       upload_date: nowIso,
@@ -131,17 +131,31 @@ export async function handlePost(req: Request) {
     );
   }
 
-  const folder = `users/${auth.user.id}/models/${newAsset.id}`;
-  const glbKey = `${folder}/${body.templateKey}.glb`;
+  const folder = `users/${auth.user.id}/models/${crypto.randomUUID()}`;
+  const modelFilename =
+    template.glb.split("/").pop() ?? `${body.templateKey}.glb`;
+  const previewFilename = template.preview.split("/").pop() ?? "preview.png";
+  const copiedModelKey = `${folder}/${modelFilename}`;
+  const copiedPreviewKey = `${folder}/${previewFilename}`;
 
-  await s3Client.send(
-    new CopyObjectCommand({
-      Bucket: S3_BUCKET,
-      CopySource: toCopySource(S3_BUCKET, template.glb),
-      Key: glbKey,
-      ContentType: "model/gltf-binary",
-    }),
-  );
+  await Promise.all([
+    s3Client.send(
+      new CopyObjectCommand({
+        Bucket: S3_BUCKET,
+        CopySource: toCopySource(S3_BUCKET, template.glb),
+        Key: copiedModelKey,
+        ContentType: "model/gltf-binary",
+      }),
+    ),
+    s3Client.send(
+      new CopyObjectCommand({
+        Bucket: S3_BUCKET,
+        CopySource: toCopySource(S3_BUCKET, template.preview),
+        Key: copiedPreviewKey,
+        ContentType: "image/png",
+      }),
+    ),
+  ]);
 
   const { data: modelFile, error: modelFileError } = await supabase
     .from("asset_files")
@@ -150,8 +164,7 @@ export async function handlePost(req: Request) {
       owner_id: auth.user.id,
       file_variant: "original",
       bucket: S3_BUCKET,
-      object_key: glbKey,
-      filename: `${body.templateKey}.glb`,
+      object_key: copiedModelKey,
       mime_type: "model/gltf-binary",
     })
     .select("id")
@@ -159,7 +172,27 @@ export async function handlePost(req: Request) {
 
   if (modelFileError || !modelFile) {
     return jsonError(
-      modelFileError?.message ?? "Template model file insert failed",
+      modelFileError?.message ?? "Model file record insert failed",
+      400,
+    );
+  }
+
+  const { data: previewFile, error: previewFileError } = await supabase
+    .from("asset_files")
+    .insert({
+      asset_id: newAsset.id,
+      owner_id: auth.user.id,
+      file_variant: "preview",
+      bucket: S3_BUCKET,
+      object_key: copiedPreviewKey,
+      mime_type: "image/png",
+    })
+    .select("id")
+    .single();
+
+  if (previewFileError || !previewFile) {
+    return jsonError(
+      previewFileError?.message ?? "Preview file record insert failed",
       400,
     );
   }
@@ -168,19 +201,18 @@ export async function handlePost(req: Request) {
     .from("assets")
     .update({
       asset_file_id: modelFile.id,
+      preview_file_id: previewFile.id,
       last_updated: nowIso,
     })
-    .eq("id", newAsset.id);
+    .eq("id", newAsset.id)
+    .eq("owner_id", auth.user.id);
 
   if (updateAssetError) {
     return jsonError(
-      updateAssetError.message ?? "Template asset update failed",
+      updateAssetError.message ?? "Asset file linkage failed",
       400,
     );
   }
 
-  return NextResponse.json(
-    { assetId: newAsset.id, modelFileId: modelFile.id },
-    { status: 201 },
-  );
+  return NextResponse.json({ assetId: newAsset.id }, { status: 201 });
 }
