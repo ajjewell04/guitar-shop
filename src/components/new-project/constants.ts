@@ -15,6 +15,10 @@ export const PART_TYPES = [
 
 export type PartType = (typeof PART_TYPES)[number];
 
+export const IMPORTABLE_PART_TYPES = PART_TYPES.filter(
+  (p) => p !== "neck",
+) as Exclude<PartType, "neck">[];
+
 export const TEMPLATE_TYPES = [
   "stratocaster",
   "telecaster",

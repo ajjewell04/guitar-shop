@@ -24,7 +24,7 @@ import { useRouter } from "next/navigation";
 import { renderModelPreview } from "@/lib/model-preview";
 
 import {
-  PART_TYPES,
+  IMPORTABLE_PART_TYPES,
   type PartType,
   type ProjectMode,
   type TemplateType,
@@ -267,7 +267,7 @@ export function NewProjectForm({
                             <SelectValue placeholder="Select part type" />
                           </SelectTrigger>
                           <SelectContent className="bg-(--background) text-(--foreground) border-(--foreground)">
-                            {PART_TYPES.map((type) => (
+                            {IMPORTABLE_PART_TYPES.map((type) => (
                               <SelectItem
                                 key={type}
                                 value={type}

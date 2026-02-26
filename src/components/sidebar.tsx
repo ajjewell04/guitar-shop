@@ -8,13 +8,21 @@ type Project = {
   name: string;
 };
 
-type SidebarProps = {
-  onNewProject?: () => void;
+type Asset = {
+  id: string;
+  name: string;
 };
 
-export default function Sidebar({ onNewProject }: SidebarProps) {
+type SidebarProps = {
+  onNewProject?: () => void;
+  onNewAsset?: () => void;
+};
+
+export default function Sidebar({ onNewProject, onNewAsset }: SidebarProps) {
   const [projects, setProjects] = useState<Project[]>([]);
-  const [error, setError] = useState<string | null>(null);
+  const [assets, setAssets] = useState<Asset[]>([]);
+  const [projectError, setProjectError] = useState<string | null>(null);
+  const [assetError, setAssetError] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -26,15 +34,35 @@ export default function Sidebar({ onNewProject }: SidebarProps) {
         .from("projects")
         .select("id, name")
         .order("created_on", { ascending: false });
+
       if (!isActive) return;
 
       if (error) {
-        setError(error.message);
+        setProjectError(error.message);
         setProjects([]);
         return;
       }
 
+      setProjectError(null);
       setProjects(data ?? []);
+    };
+
+    const loadAssets = async () => {
+      const { data, error } = await supabase
+        .from("assets")
+        .select("id, name")
+        .order("upload_date", { ascending: false });
+
+      if (!isActive) return;
+
+      if (error) {
+        setAssetError(error.message);
+        setAssets([]);
+        return;
+      }
+
+      setAssetError(null);
+      setAssets(data ?? []);
     };
 
     supabase.auth.getUser().then(({ data }) => {
@@ -42,21 +70,31 @@ export default function Sidebar({ onNewProject }: SidebarProps) {
     });
 
     loadProjects();
+    loadAssets();
 
     const onProjectsChanged = () => {
       loadProjects();
     };
 
+    const onAssetsChanged = () => {
+      loadAssets();
+    };
+
     window.addEventListener("projects-changed", onProjectsChanged);
+    window.addEventListener("assets-changed", onAssetsChanged);
 
     return () => {
       isActive = false;
       window.removeEventListener("projects-changed", onProjectsChanged);
+      window.removeEventListener("assets-changed", onAssetsChanged);
     };
   }, []);
 
-  const shownProjects = projects.slice(0, 5);
+  const shownProjects = projects.slice(0, 4);
   const hasMoreProjects = projects.length > shownProjects.length;
+
+  const shownAssets = assets.slice(0, 4);
+  const hasMoreAssets = assets.length > shownAssets.length;
 
   return (
     <aside className="flex h-screen justify-between flex-col bg-foreground px-8 py-6">
@@ -75,6 +113,7 @@ export default function Sidebar({ onNewProject }: SidebarProps) {
           </li>
         </ul>
       </nav>
+
       <section>
         <div className="flex justify-between items-center mb-4">
           <h4>Projects</h4>
@@ -87,10 +126,10 @@ export default function Sidebar({ onNewProject }: SidebarProps) {
           </Button>
         </div>
         <ul className="flex flex-col items-center gap-4 overflow-y-auto">
-          {error && (
+          {projectError && (
             <li className="text-sm text-red-500">Failed to load projects.</li>
           )}
-          {!error && projects.length === 0 && (
+          {!projectError && projects.length === 0 && (
             <li className="text-sm text-muted-foreground">No projects yet.</li>
           )}
           {shownProjects.map((project) => (
@@ -105,6 +144,42 @@ export default function Sidebar({ onNewProject }: SidebarProps) {
           )}
         </ul>
       </section>
+
+      <section>
+        <div className="flex justify-between items-center mb-4">
+          <h4>Assets</h4>
+          <Button
+            id="newAssetBtn"
+            className="cursor-pointer text-xl rounded-lg p-2"
+            onClick={onNewAsset}
+          >
+            +
+          </Button>
+        </div>
+        <ul className="flex flex-col items-center gap-4 overflow-y-auto">
+          {assetError && (
+            <li className="text-sm text-red-500">Failed to load assets.</li>
+          )}
+          {!assetError && assets.length === 0 && (
+            <li className="text-sm text-muted-foreground">No assets yet.</li>
+          )}
+          {shownAssets.map((asset) => (
+            <li key={asset.id}>
+              <Link href={userId ? `/library/${userId}` : "/library"}>
+                {asset.name}
+              </Link>
+            </li>
+          ))}
+          {hasMoreAssets && (
+            <li>
+              <Link href={userId ? `/library/${userId}` : "/library"}>
+                See all
+              </Link>
+            </li>
+          )}
+        </ul>
+      </section>
+
       <nav>
         <ul className="flex flex-col items-center gap-6">
           <li>

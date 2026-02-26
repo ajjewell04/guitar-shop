@@ -4,10 +4,13 @@ import { requireUser } from "@/app/api/_shared/auth";
 import { jsonError } from "@/app/api/_shared/http";
 import { GetProjectNodesQuerySchema } from "@/app/api/project-nodes/dto";
 import { getOwnedProject } from "@/app/api/project-nodes/service";
+import { unwrapRelation } from "@/app/api/_shared/s3";
 import {
   mapLibraryAssetRow,
   mapNodeRow,
 } from "@/app/api/project-nodes/mappers";
+
+type NodeAsset = NonNullable<Parameters<typeof mapNodeRow>[0]["asset"]>;
 
 export async function handleGet(req: Request) {
   const supabase = await supabaseServer();
@@ -49,6 +52,7 @@ export async function handleGet(req: Request) {
         id,
         name,
         part_type,
+        meta,
         model_file:asset_files!assets_asset_file_id_fkey (
           id, bucket, object_key, mime_type
         ),
@@ -70,6 +74,7 @@ export async function handleGet(req: Request) {
       id,
       name,
       part_type,
+      meta,
       upload_date,
       model_file:asset_files!assets_asset_file_id_fkey (
         id, bucket, object_key, mime_type
@@ -84,7 +89,17 @@ export async function handleGet(req: Request) {
 
   if (assetsError) return jsonError(assetsError.message, 400);
 
-  const nodeRows = await Promise.all((nodes ?? []).map(mapNodeRow));
+  const nodeRows = await Promise.all(
+    (nodes ?? []).map((node) =>
+      mapNodeRow({
+        ...node,
+        asset: unwrapRelation<NodeAsset>(
+          node.asset as NodeAsset | NodeAsset[] | null | undefined,
+        ),
+      }),
+    ),
+  );
+
   const assetRows = await Promise.all(
     (libraryAssets ?? []).map(mapLibraryAssetRow),
   );

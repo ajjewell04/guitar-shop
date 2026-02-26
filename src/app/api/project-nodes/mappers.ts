@@ -15,6 +15,7 @@ interface ProjectNode {
   transforms?: Record<string, unknown>;
   last_updated: string;
   asset?: {
+    meta: object;
     id: string;
     name: string;
     part_type: string;
@@ -51,6 +52,7 @@ export async function mapNodeRow(node: ProjectNode) {
           id: node.asset.id,
           name: node.asset.name,
           part_type: node.asset.part_type,
+          meta: node.asset.meta ?? {},
           modelUrl: await signGetFileUrl(modelFile, { expiresIn: 60 }),
           previewUrl: await signGetFileUrl(previewFile, { expiresIn: 60 }),
         }
