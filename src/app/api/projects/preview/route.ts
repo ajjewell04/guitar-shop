@@ -1,4 +1,3 @@
-// src/app/api/projects/preview/route.ts
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase";
 import { requireUser } from "../../_shared/auth";

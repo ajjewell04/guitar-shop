@@ -7,8 +7,9 @@ import {
   useRef,
   Suspense,
   useCallback,
+  type RefObject,
 } from "react";
-import { Canvas } from "@react-three/fiber";
+import { Canvas, useFrame } from "@react-three/fiber";
 import {
   Grid,
   Html,
@@ -114,11 +115,36 @@ type ProjectNodeDeleteResponse = {
   error?: string;
 };
 
+type PromoteProjectRootResponse = {
+  ok?: boolean;
+  projectId?: string;
+  rootNodeId?: string;
+  error?: string;
+};
+
+type AssemblyWarning = {
+  id: string;
+  message: string;
+};
+
 type NumericNeckKey =
   | "scaleLengthIn"
   | "fretCount"
+  | "stringCount"
   | "nutWidthMm"
   | "widthAtLastFretMm"
+  | "fretboardThicknessNutMm"
+  | "fretboardThicknessEndMm"
+  | "fretboardOverhangMm"
+  | "fretboardSideMarginMm"
+  | "nutThicknessMm"
+  | "nutHeightMm"
+  | "nutEdgeMarginMm"
+  | "nutSlotWidthMm"
+  | "nutSlotDepthMm"
+  | "fretCrownWidthMm"
+  | "fretCrownHeightMm"
+  | "fretEndInsetMm"
   | "thicknessAt1stMm"
   | "thicknessAt12thMm"
   | "asymmetryMm"
@@ -229,6 +255,20 @@ function finiteNumber(value: unknown, fallback: number) {
   return typeof value === "number" && Number.isFinite(value) ? value : fallback;
 }
 
+function isObjectInSceneGraph(
+  obj: THREE.Object3D | null,
+): obj is THREE.Object3D {
+  if (!obj) return false;
+  let cursor: THREE.Object3D | null = obj;
+  let depth = 0;
+  while (cursor && depth < 256) {
+    if ((cursor as THREE.Scene).isScene) return true;
+    cursor = cursor.parent;
+    depth += 1;
+  }
+  return false;
+}
+
 function normalizeNodeTransforms(
   transforms?: Partial<NodeTransforms> | null,
 ): NodeTransforms {
@@ -274,11 +314,85 @@ function toTransformInputDraft(
 const NUMERIC_NECK_META: Record<NumericNeckKey, NumericNeckMeta> = {
   scaleLengthIn: { label: "Scale Length (in)", min: 22.5, max: 27, step: 0.01 },
   fretCount: { label: "Fret Count", min: 20, max: 24, step: 1, integer: true },
+  stringCount: {
+    label: "String Count",
+    min: 6,
+    max: 8,
+    step: 1,
+    integer: true,
+  },
   nutWidthMm: { label: "Nut Width (mm)", min: 38, max: 48, step: 0.1 },
   widthAtLastFretMm: {
     label: "Last Fret Width (mm)",
     min: 50,
     max: 62,
+    step: 0.1,
+  },
+  fretboardThicknessNutMm: {
+    label: "Board Thickness @ Nut (mm)",
+    min: 4,
+    max: 8,
+    step: 0.1,
+  },
+  fretboardThicknessEndMm: {
+    label: "Board Thickness @ End (mm)",
+    min: 4,
+    max: 9,
+    step: 0.1,
+  },
+  fretboardOverhangMm: {
+    label: "Board Overhang (mm)",
+    min: 0,
+    max: 20,
+    step: 0.1,
+  },
+  fretboardSideMarginMm: {
+    label: "Board Side Margin (mm)",
+    min: 0,
+    max: 4,
+    step: 0.1,
+  },
+  nutThicknessMm: {
+    label: "Nut Thickness (mm)",
+    min: 2,
+    max: 6,
+    step: 0.1,
+  },
+  nutHeightMm: { label: "Nut Height (mm)", min: 3, max: 8, step: 0.1 },
+  nutEdgeMarginMm: {
+    label: "Nut Edge Margin (mm)",
+    min: 1.5,
+    max: 6,
+    step: 0.1,
+  },
+  nutSlotWidthMm: {
+    label: "Nut Slot Width (mm)",
+    min: 0.5,
+    max: 2.2,
+    step: 0.1,
+  },
+  nutSlotDepthMm: {
+    label: "Nut Slot Depth (mm)",
+    min: 0.5,
+    max: 4,
+    step: 0.1,
+  },
+  fretCrownWidthMm: {
+    label: "Fret Crown Width (mm)",
+    min: 1.6,
+    max: 3.2,
+    step: 0.1,
+  },
+  fretCrownHeightMm: {
+    label: "Fret Crown Height (mm)",
+    min: 0.5,
+    max: 1.8,
+    step: 0.1,
+  },
+  fretEndInsetMm: {
+    label: "Fret End Inset (mm)",
+    min: 0,
+    max: 3,
     step: 0.1,
   },
   thicknessAt1stMm: {
@@ -307,7 +421,12 @@ const NUMERIC_NECK_META: Record<NumericNeckKey, NumericNeckMeta> = {
     step: 0.01,
   },
   heelWidthMm: { label: "Heel Width (mm)", min: 54, max: 58.5, step: 0.1 },
-  heelLengthMm: { label: "Heel Length (mm)", min: 70, max: 90, step: 0.1 },
+  heelLengthMm: {
+    label: "Heel Length from Last Fret (mm)",
+    min: 12,
+    max: 40,
+    step: 0.1,
+  },
   heelThicknessMm: {
     label: "Heel Thickness (mm)",
     min: 20,
@@ -374,13 +493,32 @@ const NUMERIC_NECK_META: Record<NumericNeckKey, NumericNeckMeta> = {
 const NUMERIC_NECK_KEYS = Object.keys(NUMERIC_NECK_META) as NumericNeckKey[];
 const GENERAL_DIMENSION_NECK_KEYS: NumericNeckKey[] = [
   "scaleLengthIn",
-  "fretCount",
+  "stringCount",
   "nutWidthMm",
   "widthAtLastFretMm",
   "thicknessAt1stMm",
   "thicknessAt12thMm",
 ];
 const PROFILE_NUMERIC_NECK_KEYS: NumericNeckKey[] = ["asymmetryMm"];
+const FRETBOARD_NUMERIC_NECK_KEYS: NumericNeckKey[] = [
+  "fretboardThicknessNutMm",
+  "fretboardThicknessEndMm",
+  "fretboardOverhangMm",
+  "fretboardSideMarginMm",
+];
+const NUT_NUMERIC_NECK_KEYS: NumericNeckKey[] = [
+  "nutThicknessMm",
+  "nutHeightMm",
+  "nutEdgeMarginMm",
+  "nutSlotWidthMm",
+  "nutSlotDepthMm",
+];
+const FRETS_NUMERIC_NECK_KEYS: NumericNeckKey[] = [
+  "fretCount",
+  "fretCrownWidthMm",
+  "fretCrownHeightMm",
+  "fretEndInsetMm",
+];
 const HEEL_NUMERIC_NECK_KEYS: NumericNeckKey[] = [
   "heelWidthMm",
   "heelLengthMm",
@@ -456,10 +594,12 @@ function ModelAssetView({
   url,
   nodeId,
   onLoaded,
+  centerModel = true,
 }: {
   url: string;
   nodeId: string;
   onLoaded: (nodeId: string) => void;
+  centerModel?: boolean;
 }) {
   const gltf = useGLTF(url) as unknown as GLTF;
 
@@ -469,13 +609,35 @@ function ModelAssetView({
 
   const centeredScene = useMemo(() => {
     const scene = gltf.scene.clone(true);
-    const box = new THREE.Box3().setFromObject(scene);
-    const center = box.getCenter(new THREE.Vector3());
-    scene.position.sub(center);
+    if (centerModel) {
+      const box = new THREE.Box3().setFromObject(scene);
+      const center = box.getCenter(new THREE.Vector3());
+      scene.position.sub(center);
+    }
     return scene;
-  }, [gltf.scene]);
+  }, [gltf.scene, centerModel]);
 
   return <primitive object={centeredScene} />;
+}
+
+function TransformControlsSync({
+  controlsRef,
+  object,
+}: {
+  controlsRef: RefObject<TransformControlsImpl | null>;
+  object: THREE.Object3D | null;
+}) {
+  useFrame(() => {
+    const controls = controlsRef.current;
+    if (!controls) return;
+    if (object && isObjectInSceneGraph(object)) {
+      controls.attach(object);
+      return;
+    }
+    controls.detach();
+  });
+
+  return null;
 }
 
 export default function ProjectPlayground({
@@ -483,6 +645,9 @@ export default function ProjectPlayground({
   className,
 }: ProjectPlaygroundProps) {
   const [nodes, setNodes] = useState<ProjectNode[]>([]);
+  const [projectRootNodeId, setProjectRootNodeId] = useState<string | null>(
+    null,
+  );
   const [libraryAssets, setLibraryAssets] = useState<LibraryAsset[]>([]);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [addingAssetId, setAddingAssetId] = useState<string | null>(null);
@@ -496,9 +661,13 @@ export default function ProjectPlayground({
     null,
   );
   const [loadedNodeIds, setLoadedNodeIds] = useState<Set<string>>(new Set());
-  const [assetSearch, setAssetSearch] = useState("");
+  const [assetSearch, _setAssetSearch] = useState("");
   const [activePart, setActivePart] = useState<PartType>("all");
   const [assetSort, setAssetSort] = useState<SortKey>("asc");
+  const [assemblyWarnings, setAssemblyWarnings] = useState<AssemblyWarning[]>(
+    [],
+  );
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [neckDraftByNodeId, setNeckDraftByNodeId] = useState<
     Record<string, NeckParams>
   >({});
@@ -523,16 +692,19 @@ export default function ProjectPlayground({
     {},
   );
   const saveTimerRef = useRef<number | null>(null);
+  const toastTimerRef = useRef<number | null>(null);
 
   const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const orbitRef = useRef<OrbitControlsImpl | null>(null);
   const transformRef = useRef<TransformControlsImpl | null>(null);
+  const transformPointerDownRef = useRef(false);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const recenterRafRef = useRef<number | null>(null);
 
   const projectIdRef = useRef<string | undefined>(projectId);
+  const projectRootNodeIdRef = useRef<string | null>(null);
   const nodesRef = useRef<ProjectNode[]>([]);
   const previewFlushInFlightRef = useRef<Promise<void> | null>(null);
 
@@ -558,7 +730,10 @@ export default function ProjectPlayground({
   );
 
   const expectedModelNodes = useMemo(
-    () => nodes.filter((n) => !!n.asset?.modelUrl).map((n) => n.id),
+    () =>
+      nodes
+        .filter((n) => !!n.asset?.modelUrl && n.asset?.part_type !== "neck")
+        .map((n) => n.id),
     [nodes],
   );
 
@@ -571,10 +746,30 @@ export default function ProjectPlayground({
     }
     return { total, loaded, pct: Math.round((loaded / total) * 100) };
   }, [expectedModelNodes, loadedNodeIds]);
+  const isModelLoading =
+    loadProgress.total > 0 && loadProgress.loaded < loadProgress.total;
+  const [hideModelLoadBadge, setHideModelLoadBadge] = useState(false);
+  const [modelLoadBadgeTimedOut, setModelLoadBadgeTimedOut] = useState(false);
 
   useEffect(() => {
     setLoadedNodeIds(new Set());
   }, [expectedModelNodes.join("|")]);
+
+  useEffect(() => {
+    setHideModelLoadBadge(false);
+    setModelLoadBadgeTimedOut(false);
+  }, [expectedModelNodes.join("|")]);
+
+  useEffect(() => {
+    if (!isModelLoading) {
+      setModelLoadBadgeTimedOut(false);
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      setModelLoadBadgeTimedOut(true);
+    }, 8000);
+    return () => window.clearTimeout(timer);
+  }, [isModelLoading, expectedModelNodes.join("|")]);
 
   const markNodeLoaded = useCallback((nodeId: string) => {
     setLoadedNodeIds((prev) => {
@@ -588,6 +783,10 @@ export default function ProjectPlayground({
   useEffect(() => {
     projectIdRef.current = projectId;
   }, [projectId]);
+
+  useEffect(() => {
+    projectRootNodeIdRef.current = projectRootNodeId;
+  }, [projectRootNodeId]);
 
   useEffect(() => {
     nodesRef.current = nodes;
@@ -682,6 +881,16 @@ export default function ProjectPlayground({
     return new THREE.Box3().setFromObject(obj).getCenter(new THREE.Vector3());
   }, []);
 
+  const shouldIgnoreSceneSelection = useCallback(() => {
+    const controls = transformRef.current;
+    if (!controls) return false;
+    return (
+      transformPointerDownRef.current ||
+      controls.dragging ||
+      controls.axis !== null
+    );
+  }, []);
+
   const recenterCameraTo = useCallback(
     (nextTarget: THREE.Vector3, animate = true) => {
       const camera = cameraRef.current;
@@ -765,6 +974,8 @@ export default function ProjectPlayground({
   ): Promise<ProjectNode[]> {
     if (!projectId) {
       setNodes([]);
+      setProjectRootNodeId(null);
+      projectRootNodeIdRef.current = null;
       setLibraryAssets([]);
       setSelectedNodeId(null);
       setStatus("idle");
@@ -785,6 +996,8 @@ export default function ProjectPlayground({
 
       const nextNodes = data.nodes ?? [];
       setNodes(nextNodes);
+      setProjectRootNodeId(data.project?.root_node_id ?? null);
+      projectRootNodeIdRef.current = data.project?.root_node_id ?? null;
       setLibraryAssets(data.libraryAssets ?? []);
 
       setSelectedNodeId((prev) => {
@@ -815,39 +1028,212 @@ export default function ProjectPlayground({
     void loadProjectData();
     return () => {
       if (saveTimerRef.current) window.clearTimeout(saveTimerRef.current);
+      if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
     };
   }, [projectId]);
 
-  async function addAssetToProject(assetId: string): Promise<string | null> {
+  function showToast(message: string) {
+    setToastMessage(message);
+    if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = window.setTimeout(() => {
+      setToastMessage(null);
+      toastTimerRef.current = null;
+    }, 3500);
+  }
+
+  function findPartNode(rows: ProjectNode[], partType: string) {
+    return rows.find((node) => node.asset?.part_type === partType) ?? null;
+  }
+
+  function getRequiredParentPartType(
+    partType: string | null,
+  ): "body" | "neck" | null {
+    if (partType === "bridge" || partType === "pickup") return "body";
+    if (partType === "tuning_machine") return "neck";
+    return null;
+  }
+
+  async function promoteBodyNodeToRoot(bodyNodeId: string) {
+    if (!projectId) throw new Error("Missing project id");
+    const res = await fetch("/api/projects/root", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ projectId, newRootNodeId: bodyNodeId }),
+    });
+    const payload = (await res
+      .json()
+      .catch(() => ({}))) as PromoteProjectRootResponse;
+    if (!res.ok) {
+      throw new Error(
+        payload?.error ?? "Failed to promote body to project root",
+      );
+    }
+  }
+
+  async function patchProjectNode(
+    nodeId: string,
+    patch: {
+      parentId?: string | null;
+      assetId?: string;
+      position?: Vec3;
+      rotation?: Vec3;
+      scale?: number;
+    },
+  ) {
+    const res = await fetch("/api/project-nodes", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ nodeId, ...patch }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data?.error ?? "Project node update failed");
+    }
+  }
+
+  async function ensureBodyNeckPairing(nextNodes: ProjectNode[]) {
+    let currentNodes = nextNodes;
+    let bodyNode = findPartNode(currentNodes, "body");
+    let neckNode = findPartNode(currentNodes, "neck");
+
+    if (!bodyNode || !neckNode) {
+      setAssemblyWarnings([]);
+      return currentNodes;
+    }
+
+    if (projectRootNodeIdRef.current !== bodyNode.id) {
+      await promoteBodyNodeToRoot(bodyNode.id);
+      currentNodes = await loadProjectData(bodyNode.id);
+      bodyNode = findPartNode(currentNodes, "body");
+      neckNode = findPartNode(currentNodes, "neck");
+      if (!bodyNode || !neckNode) return currentNodes;
+    }
+
+    if (neckNode.parent_id === bodyNode.id) {
+      setAssemblyWarnings([]);
+      return currentNodes;
+    }
+
+    setSelectedObject(null);
+
+    await patchProjectNode(neckNode.id, {
+      parentId: bodyNode.id,
+    });
+
+    setAssemblyWarnings([]);
+
+    return loadProjectData(neckNode.id);
+  }
+
+  async function addAssetToProject(
+    assetId: string,
+    partTypeHint?: string | null,
+  ): Promise<string | null> {
     if (!projectId) return null;
+    const sourceAsset = libraryAssets.find((asset) => asset.id === assetId);
+    const sourcePartType = sourceAsset?.part_type ?? partTypeHint ?? null;
 
     setAddingAssetId(assetId);
     setErrorMessage(null);
 
     try {
-      const res = await fetch("/api/project-nodes", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ projectId, assetId }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(data?.error ?? "Failed to add asset to project");
+      let resultNodeId: string | null = null;
+      let nextNodes: ProjectNode[] = [];
+      const isBodyOrNeck =
+        sourcePartType === "body" || sourcePartType === "neck";
+      const requiredParentPartType = getRequiredParentPartType(sourcePartType);
+      const requiredParentNode = requiredParentPartType
+        ? findPartNode(nodesRef.current, requiredParentPartType)
+        : null;
+
+      const createProjectNode = async (parentId?: string) => {
+        const requestBody: {
+          projectId: string;
+          assetId: string;
+          parentId?: string;
+        } = {
+          projectId,
+          assetId,
+        };
+        if (parentId) requestBody.parentId = parentId;
+
+        const res = await fetch("/api/project-nodes", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(requestBody),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw new Error(data?.error ?? "Failed to add asset to project");
+        }
+
+        return typeof data?.node?.id === "string" ? data.node.id : null;
+      };
+
+      if (isBodyOrNeck) {
+        const existingNode = findPartNode(nodesRef.current, sourcePartType);
+        if (existingNode) {
+          const confirmed = window.confirm(
+            `This project already has a ${sourcePartType}. Replace it with "${sourceAsset?.name ?? "selected asset"}"?`,
+          );
+          if (!confirmed) return null;
+
+          await patchProjectNode(existingNode.id, { assetId });
+          clearNodeLocalDraftState(existingNode.id);
+          resultNodeId = existingNode.id;
+          nextNodes = await loadProjectData(existingNode.id);
+        } else {
+          resultNodeId = await createProjectNode();
+          nextNodes = await loadProjectData(resultNodeId ?? undefined);
+        }
+
+        nextNodes = await ensureBodyNeckPairing(nextNodes);
+        const counterpart = sourcePartType === "body" ? "neck" : "body";
+        if (!findPartNode(nextNodes, counterpart)) {
+          showToast(
+            `Added ${sourcePartType}. Add a ${counterpart} to auto-attach.`,
+          );
+        }
+      } else if (sourcePartType === "bridge") {
+        const existingBridgeNode = findPartNode(nodesRef.current, "bridge");
+        if (existingBridgeNode) {
+          const confirmed = window.confirm(
+            `This project already has a bridge. Replace it with "${sourceAsset?.name ?? "selected asset"}"?`,
+          );
+          if (!confirmed) return null;
+
+          await patchProjectNode(existingBridgeNode.id, { assetId });
+          resultNodeId = existingBridgeNode.id;
+          nextNodes = await loadProjectData(existingBridgeNode.id);
+        } else {
+          resultNodeId = await createProjectNode(requiredParentNode?.id);
+          nextNodes = await loadProjectData(resultNodeId ?? undefined);
+          if (requiredParentPartType && !requiredParentNode) {
+            showToast(
+              "Added bridge without a body parent. Add a body to attach it.",
+            );
+          }
+        }
+      } else {
+        resultNodeId = await createProjectNode(requiredParentNode?.id);
+        nextNodes = await loadProjectData(resultNodeId ?? undefined);
+
+        if (requiredParentPartType && !requiredParentNode) {
+          const partLabel = sourcePartType?.replace(/_/g, " ") ?? "part";
+          showToast(
+            `Added ${partLabel} without a ${requiredParentPartType} parent. Add a ${requiredParentPartType} to attach it.`,
+          );
+        }
       }
 
-      const createdNodeId =
-        typeof data?.node?.id === "string" ? data.node.id : null;
-
-      const nextNodes = await loadProjectData(createdNodeId ?? undefined);
-
-      if (!createdNodeId) {
+      if (!resultNodeId) {
         const byAsset =
           nextNodes.find((n) => n.asset_id === assetId)?.id ?? null;
         if (byAsset) setSelectedNodeId(byAsset);
         return byAsset;
       }
 
-      return createdNodeId;
+      return resultNodeId;
     } catch (err) {
       setErrorMessage(
         err instanceof Error ? err.message : "Failed to add asset.",
@@ -1042,7 +1428,7 @@ export default function ProjectPlayground({
       return errorMessage ?? "Unable to load project data.";
     if (loadedModelCount === 0) return "No models in project yet.";
     return `${loadedModelCount} model${loadedModelCount === 1 ? "" : "s"} in project`;
-  }, [status, errorMessage, nodes.length]);
+  }, [status, errorMessage, loadedModelCount]);
 
   const visibleLibraryAssets = useMemo(() => {
     const q = assetSearch.toLowerCase().trim();
@@ -1085,6 +1471,18 @@ export default function ProjectPlayground({
     if (selectedNode.asset.part_type !== "neck") return null;
     return selectedNode;
   }, [selectedNode]);
+  const selectedBodyOrNeckNode = useMemo(() => {
+    const partType = selectedNode?.asset?.part_type;
+    return partType === "body" || partType === "neck";
+  }, [selectedNode]);
+
+  useEffect(() => {
+    const hasBody = nodes.some((node) => node.asset?.part_type === "body");
+    const hasNeck = nodes.some((node) => node.asset?.part_type === "neck");
+    if (!hasBody || !hasNeck) {
+      setAssemblyWarnings([]);
+    }
+  }, [nodes]);
 
   useEffect(() => {
     if (!selectedNode?.id) return;
@@ -1243,7 +1641,7 @@ export default function ProjectPlayground({
         throw new Error(payload?.error ?? "Failed to create neck");
       }
 
-      const createdNodeId = await addAssetToProject(payload.assetId);
+      const createdNodeId = await addAssetToProject(payload.assetId, "neck");
 
       setActivePart("neck");
       if (createdNodeId) {
@@ -1798,6 +2196,157 @@ export default function ProjectPlayground({
     );
   }
 
+  const sortedNodesByParentId = useMemo(() => {
+    const map = new Map<string | null, ProjectNode[]>();
+    for (const node of nodes) {
+      const key = node.parent_id ?? null;
+      const bucket = map.get(key);
+      if (bucket) bucket.push(node);
+      else map.set(key, [node]);
+    }
+    for (const [key, bucket] of map.entries()) {
+      map.set(
+        key,
+        [...bucket].sort((a, b) => {
+          if (a.sort_index !== b.sort_index) return a.sort_index - b.sort_index;
+          return a.id.localeCompare(b.id);
+        }),
+      );
+    }
+    return map;
+  }, [nodes]);
+
+  const sceneRootNodes = useMemo(() => {
+    const byId = new Set(nodes.map((node) => node.id));
+    return nodes
+      .filter((node) => !node.parent_id || !byId.has(node.parent_id))
+      .sort((a, b) => {
+        if (a.sort_index !== b.sort_index) return a.sort_index - b.sort_index;
+        return a.id.localeCompare(b.id);
+      });
+  }, [nodes]);
+
+  const renderSceneNode = useCallback(
+    (node: ProjectNode) => {
+      const transforms = normalizeNodeTransforms(node.transforms);
+      const pos = transforms.position;
+      const rot = transforms.rotation;
+      const scale = transforms.scale;
+      const isNeck = node.asset?.part_type === "neck";
+      const isBody = node.asset?.part_type === "body";
+      const neckParams = getNeckParamsForNode(node);
+      const headstockRenderState = getHeadstockRenderState(neckParams);
+      const headstockUrl = headstockRenderState.url;
+      const headstockUnavailableError = headstockRenderState.unavailableError;
+      const children = sortedNodesByParentId.get(node.id) ?? [];
+      const hasRenderableSelf = isNeck ? !!neckParams : !!node.asset?.modelUrl;
+
+      if (!hasRenderableSelf && children.length === 0) return null;
+
+      return (
+        <group
+          key={node.id}
+          ref={(g) => {
+            nodeRefs.current[node.id] = g;
+            if (node.id === selectedNodeId) {
+              setSelectedObject(
+                resolveSelectedObject(
+                  node.id,
+                  transformMode,
+                  neckTransformTarget,
+                ),
+              );
+            }
+          }}
+          position={[pos.x, pos.y, pos.z]}
+          rotation={[
+            THREE.MathUtils.degToRad(rot.x),
+            THREE.MathUtils.degToRad(rot.y),
+            THREE.MathUtils.degToRad(rot.z),
+          ]}
+          scale={[scale, scale, scale]}
+          onPointerDown={(e) => {
+            e.stopPropagation();
+            if (shouldIgnoreSceneSelection()) return;
+            setSelectedNodeId(node.id);
+            if (isNeck) {
+              setNeckTransformTarget("neck");
+            }
+          }}
+        >
+          <Suspense fallback={null}>
+            {isNeck && neckParams ? (
+              <ProceduralNeckMesh
+                params={neckParams}
+                headstockUrl={headstockUrl}
+                headstockUnavailableError={headstockUnavailableError}
+                onHeadstockStateChange={(state) =>
+                  setHeadstockLoadState(node.id, state)
+                }
+                onHeadstockTranslateGroupChange={(group) => {
+                  headstockTranslateRefs.current[node.id] = group;
+                  if (
+                    node.id === selectedNodeId &&
+                    neckTransformTarget === "headstock" &&
+                    transformMode === "translate"
+                  ) {
+                    setSelectedObject(
+                      resolveSelectedObject(
+                        node.id,
+                        transformMode,
+                        neckTransformTarget,
+                      ),
+                    );
+                  }
+                }}
+                onHeadstockRotateScaleGroupChange={(group) => {
+                  headstockRotateScaleRefs.current[node.id] = group;
+                  if (
+                    node.id === selectedNodeId &&
+                    neckTransformTarget === "headstock" &&
+                    transformMode !== "translate"
+                  ) {
+                    setSelectedObject(
+                      resolveSelectedObject(
+                        node.id,
+                        transformMode,
+                        neckTransformTarget,
+                      ),
+                    );
+                  }
+                }}
+                onHeadstockPointerDown={() => {
+                  setSelectedNodeId(node.id);
+                  setNeckTransformTarget("headstock");
+                }}
+              />
+            ) : !isNeck && node.asset?.modelUrl ? (
+              <ModelAssetView
+                url={node.asset.modelUrl}
+                nodeId={node.id}
+                centerModel={!isBody}
+                onLoaded={markNodeLoaded}
+              />
+            ) : null}
+          </Suspense>
+          {children.map((child) => renderSceneNode(child))}
+        </group>
+      );
+    },
+    [
+      getHeadstockRenderState,
+      getNeckParamsForNode,
+      markNodeLoaded,
+      neckTransformTarget,
+      resolveSelectedObject,
+      selectedNodeId,
+      setHeadstockLoadState,
+      sortedNodesByParentId,
+      transformMode,
+      shouldIgnoreSceneSelection,
+    ],
+  );
+
   return (
     <div
       className={cn(
@@ -1811,6 +2360,11 @@ export default function ProjectPlayground({
         </div>
         <div className="text-xs text-muted-foreground">{statusLabel}</div>
       </div>
+      {toastMessage ? (
+        <div className="rounded border border-amber-300/60 bg-amber-500/20 px-3 py-2 text-xs text-amber-100">
+          {toastMessage}
+        </div>
+      ) : null}
 
       <div
         className={cn(
@@ -1824,6 +2378,18 @@ export default function ProjectPlayground({
           {selectedNode && selectedObject && !selectedNeckNode ? (
             <div className="absolute left-3 top-3 z-10 w-[280px]">
               {renderTransformSection(selectedNode.id, transformMode)}
+            </div>
+          ) : null}
+          {selectedBodyOrNeckNode && assemblyWarnings.length > 0 ? (
+            <div className="absolute left-3 bottom-3 z-10 w-[360px] rounded border border-amber-300/60 bg-black/70 px-3 py-2">
+              <div className="mb-1 text-[11px] font-medium uppercase tracking-wide text-amber-200">
+                Body-Neck Warnings
+              </div>
+              <div className="space-y-1 text-xs text-amber-100">
+                {assemblyWarnings.map((warning) => (
+                  <div key={warning.id}>{warning.message}</div>
+                ))}
+              </div>
             </div>
           ) : null}
           <div className="absolute right-3 top-3 z-10 flex items-center gap-1 rounded border border-white/20 bg-black/40 p-1 text-xs">
@@ -1882,110 +2448,9 @@ export default function ProjectPlayground({
               position={[0, -0.5, 0]}
             />
 
-            {nodes.map((node) => {
-              const transforms = normalizeNodeTransforms(node.transforms);
-              const pos = transforms.position;
-              const rot = transforms.rotation;
-              const scale = transforms.scale;
-              const isNeck = node.asset?.part_type === "neck";
-              const neckParams = getNeckParamsForNode(node);
-              const headstockRenderState = getHeadstockRenderState(neckParams);
-              const headstockUrl = headstockRenderState.url;
-              const headstockUnavailableError =
-                headstockRenderState.unavailableError;
+            {sceneRootNodes.map((node) => renderSceneNode(node))}
 
-              if (!isNeck && !node.asset?.modelUrl) return null;
-              if (isNeck && !neckParams) return null;
-
-              return (
-                <group
-                  key={node.id}
-                  ref={(g) => {
-                    nodeRefs.current[node.id] = g;
-                    if (node.id === selectedNodeId) {
-                      setSelectedObject(
-                        resolveSelectedObject(
-                          node.id,
-                          transformMode,
-                          neckTransformTarget,
-                        ),
-                      );
-                    }
-                  }}
-                  position={[pos.x, pos.y, pos.z]}
-                  rotation={[
-                    THREE.MathUtils.degToRad(rot.x),
-                    THREE.MathUtils.degToRad(rot.y),
-                    THREE.MathUtils.degToRad(rot.z),
-                  ]}
-                  scale={[scale, scale, scale]}
-                  onPointerDown={(e) => {
-                    e.stopPropagation();
-                    setSelectedNodeId(node.id);
-                    if (isNeck) {
-                      setNeckTransformTarget("neck");
-                    }
-                  }}
-                >
-                  <Suspense fallback={null}>
-                    {isNeck && neckParams ? (
-                      <ProceduralNeckMesh
-                        params={neckParams}
-                        headstockUrl={headstockUrl}
-                        headstockUnavailableError={headstockUnavailableError}
-                        onHeadstockStateChange={(state) =>
-                          setHeadstockLoadState(node.id, state)
-                        }
-                        onHeadstockTranslateGroupChange={(group) => {
-                          headstockTranslateRefs.current[node.id] = group;
-                          if (
-                            node.id === selectedNodeId &&
-                            neckTransformTarget === "headstock" &&
-                            transformMode === "translate"
-                          ) {
-                            setSelectedObject(
-                              resolveSelectedObject(
-                                node.id,
-                                transformMode,
-                                neckTransformTarget,
-                              ),
-                            );
-                          }
-                        }}
-                        onHeadstockRotateScaleGroupChange={(group) => {
-                          headstockRotateScaleRefs.current[node.id] = group;
-                          if (
-                            node.id === selectedNodeId &&
-                            neckTransformTarget === "headstock" &&
-                            transformMode !== "translate"
-                          ) {
-                            setSelectedObject(
-                              resolveSelectedObject(
-                                node.id,
-                                transformMode,
-                                neckTransformTarget,
-                              ),
-                            );
-                          }
-                        }}
-                        onHeadstockPointerDown={() => {
-                          setSelectedNodeId(node.id);
-                          setNeckTransformTarget("headstock");
-                        }}
-                      />
-                    ) : !isNeck ? (
-                      <ModelAssetView
-                        url={node.asset!.modelUrl!}
-                        nodeId={node.id}
-                        onLoaded={markNodeLoaded}
-                      />
-                    ) : null}
-                  </Suspense>
-                </group>
-              );
-            })}
-
-            {selectedObject ? (
+            {selectedNodeId ? (
               <TransformControls
                 ref={transformRef}
                 key={
@@ -1993,16 +2458,19 @@ export default function ProjectPlayground({
                     ? `${selectedNodeId}:${neckTransformTarget}`
                     : undefined
                 }
-                object={selectedObject}
                 mode={transformMode}
                 space="local"
                 onMouseDown={() => {
+                  transformPointerDownRef.current = true;
                   setOrbitEnabled(false);
                   recenterToSelectedNode(false);
                 }}
                 onMouseUp={() => {
                   setOrbitEnabled(true);
                   recenterToSelectedNode(true);
+                  window.requestAnimationFrame(() => {
+                    transformPointerDownRef.current = false;
+                  });
                 }}
                 onObjectChange={() => {
                   const nodeId = selectedNodeId;
@@ -2034,16 +2502,30 @@ export default function ProjectPlayground({
                 }}
               />
             ) : null}
+            <TransformControlsSync
+              controlsRef={transformRef}
+              object={selectedObject}
+            />
 
-            {loadProgress.total > 0 &&
-            loadProgress.loaded < loadProgress.total ? (
-              <Html
-                fullscreen
-                className="pointer-events-none grid place-items-center"
-              >
-                <div className="rounded-md bg-black/60 px-3 py-2 text-xs">
-                  Loading {loadProgress.pct}% ({loadProgress.loaded}/
-                  {loadProgress.total})
+            {isModelLoading &&
+            !hideModelLoadBadge &&
+            !modelLoadBadgeTimedOut ? (
+              <Html fullscreen className="pointer-events-none">
+                <div className="absolute bottom-3 right-3 z-10 pointer-events-auto">
+                  <div className="flex items-center gap-2 rounded-md border border-emerald-400/40 bg-black/60 px-2 py-1 text-[11px] text-emerald-100 backdrop-blur-sm">
+                    <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-300" />
+                    <span>
+                      Loading models {loadProgress.pct}% ({loadProgress.loaded}/
+                      {loadProgress.total})
+                    </span>
+                    <button
+                      type="button"
+                      className="rounded border border-white/20 px-1.5 py-0.5 text-[10px] text-muted-foreground transition hover:bg-white/10"
+                      onClick={() => setHideModelLoadBadge(true)}
+                    >
+                      Hide
+                    </button>
+                  </div>
                 </div>
               </Html>
             ) : null}
@@ -2262,11 +2744,11 @@ export default function ProjectPlayground({
 
                     <section className="rounded border border-white/10 bg-black/10 p-2">
                       <div className="mb-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                        Fingerboard Radius
+                        Fretboard
                       </div>
                       <div className="grid grid-cols-2 gap-2">
                         <label className="col-span-2">
-                          Fingerboard Radius Mode
+                          Radius Mode
                           <select
                             className="mt-1 w-full rounded border border-white/20 bg-[#0f1616] px-2 py-1"
                             value={currentParams.fingerboardRadiusMode}
@@ -2301,6 +2783,31 @@ export default function ProjectPlayground({
                             End radius is locked to start radius in single mode.
                           </div>
                         )}
+                        {FRETBOARD_NUMERIC_NECK_KEYS.map((key) =>
+                          renderNumberInput(key),
+                        )}
+                      </div>
+                    </section>
+
+                    <section className="rounded border border-white/10 bg-black/10 p-2">
+                      <div className="mb-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                        Nut
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        {NUT_NUMERIC_NECK_KEYS.map((key) =>
+                          renderNumberInput(key),
+                        )}
+                      </div>
+                    </section>
+
+                    <section className="rounded border border-white/10 bg-black/10 p-2">
+                      <div className="mb-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                        Frets
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        {FRETS_NUMERIC_NECK_KEYS.map((key) =>
+                          renderNumberInput(key),
+                        )}
                       </div>
                     </section>
 
@@ -2309,6 +2816,23 @@ export default function ProjectPlayground({
                         Heel
                       </div>
                       <div className="grid grid-cols-2 gap-2">
+                        <label className="col-span-2">
+                          Heel Type
+                          <select
+                            className="mt-1 w-full rounded border border-white/20 bg-[#0f1616] px-2 py-1"
+                            value={currentParams.heelType}
+                            onChange={(e) => {
+                              const heelType = e.target
+                                .value as NeckParams["heelType"];
+                              updateNeckDraft(selectedNeckNode.id, {
+                                heelType,
+                              });
+                            }}
+                          >
+                            <option value="flat">flat</option>
+                            <option value="sculpted">sculpted</option>
+                          </select>
+                        </label>
                         {HEEL_NUMERIC_NECK_KEYS.map((key) =>
                           renderNumberInput(key),
                         )}

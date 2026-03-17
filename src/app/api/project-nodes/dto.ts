@@ -22,14 +22,19 @@ export const PatchProjectNodeBodySchema = z
     position: PositionSchema.optional(),
     rotation: PositionSchema.optional(),
     scale: z.number().min(0.01).max(10).optional(),
+    parentId: z.uuid().nullable().optional(),
+    assetId: z.uuid().optional(),
   })
   .refine(
     (value) =>
       value.position !== undefined ||
       value.rotation !== undefined ||
-      value.scale !== undefined,
+      value.scale !== undefined ||
+      value.parentId !== undefined ||
+      value.assetId !== undefined,
     {
-      message: "At least one transform field is required.",
+      message:
+        "At least one transform, parentId, or assetId field is required.",
       path: ["position"],
     },
   );

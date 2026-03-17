@@ -177,7 +177,7 @@ export default function ProceduralNeckMesh({
     onHeadstockStateRef.current?.(state);
   }, []);
 
-  const mesh = useMemo(
+  const neckObject = useMemo(
     () => buildProceduralNeckMesh(params),
     [JSON.stringify(params)],
   );
@@ -216,7 +216,7 @@ export default function ProceduralNeckMesh({
       scale={[WORLD_SCALE, WORLD_SCALE, WORLD_SCALE]}
       rotation={[0, THREE.MathUtils.degToRad(params.neckAngleDeg), 0]}
     >
-      <primitive object={mesh} />
+      <primitive object={neckObject} />
 
       {headstockUrl && !headstockUnavailableError ? (
         <HeadstockErrorBoundary

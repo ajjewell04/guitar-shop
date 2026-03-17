@@ -242,42 +242,44 @@ export function NewProjectForm({
                   </div>
                   <br />
                   {isImporting && (
-                    <div className="flex flex-row gap-4">
-                      <div className="flex-1 min-w-0">
-                        <Label htmlFor="asset-name">Asset Name</Label>
-                        <Input
-                          id="asset-name"
-                          type="text"
-                          value={assetName}
-                          onChange={(e) => setAssetName(e.target.value)}
-                        />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <Label htmlFor="part-type">Part Type</Label>
-                        <Select
-                          value={partType}
-                          onValueChange={(value) =>
-                            setPartType(value as PartType)
-                          }
-                        >
-                          <SelectTrigger
-                            id="part-type"
-                            className="w-full bg-(--background) text-(--foreground) border-(--foreground)"
+                    <div className="space-y-4">
+                      <div className="flex flex-row gap-4">
+                        <div className="flex-1 min-w-0">
+                          <Label htmlFor="asset-name">Asset Name</Label>
+                          <Input
+                            id="asset-name"
+                            type="text"
+                            value={assetName}
+                            onChange={(e) => setAssetName(e.target.value)}
+                          />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <Label htmlFor="part-type">Part Type</Label>
+                          <Select
+                            value={partType}
+                            onValueChange={(value) =>
+                              setPartType(value as PartType)
+                            }
                           >
-                            <SelectValue placeholder="Select part type" />
-                          </SelectTrigger>
-                          <SelectContent className="bg-(--background) text-(--foreground) border-(--foreground)">
-                            {IMPORTABLE_PART_TYPES.map((type) => (
-                              <SelectItem
-                                key={type}
-                                value={type}
-                                className="focus:bg-(--primary) focus:text-(--foreground)"
-                              >
-                                {type.replace(/_/g, " ")}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                            <SelectTrigger
+                              id="part-type"
+                              className="w-full bg-(--background) text-(--foreground) border-(--foreground)"
+                            >
+                              <SelectValue placeholder="Select part type" />
+                            </SelectTrigger>
+                            <SelectContent className="bg-(--background) text-(--foreground) border-(--foreground)">
+                              {IMPORTABLE_PART_TYPES.map((type) => (
+                                <SelectItem
+                                  key={type}
+                                  value={type}
+                                  className="focus:bg-(--primary) focus:text-(--foreground)"
+                                >
+                                  {type.replace(/_/g, " ")}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
                       </div>
                     </div>
                   )}

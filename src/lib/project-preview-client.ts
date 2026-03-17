@@ -1,8 +1,11 @@
 "use client";
 
 import type { PreviewNodeInput } from "@/lib/project-preview";
+import { buildWorldTransformsByNodeId } from "@/lib/node-hierarchy";
 
 type NodeLike = {
+  id: string;
+  parent_id: string | null;
   transforms?: {
     position?: { x: number; y: number; z: number };
     rotation?: { x: number; y: number; z: number };
@@ -12,14 +15,18 @@ type NodeLike = {
 };
 
 export function toPreviewNodes(nodes: NodeLike[]): PreviewNodeInput[] {
+  const worldTransformsById = buildWorldTransformsByNodeId(nodes);
   return nodes
     .filter((node) => !!node.asset?.modelUrl)
-    .map((node) => ({
-      modelUrl: node.asset!.modelUrl!,
-      position: node.transforms?.position ?? { x: 0, y: 0, z: 0 },
-      rotation: node.transforms?.rotation ?? { x: 0, y: 0, z: 0 },
-      scale: node.transforms?.scale ?? 1,
-    }));
+    .map((node) => {
+      const world = worldTransformsById.get(node.id);
+      return {
+        modelUrl: node.asset!.modelUrl!,
+        position: world?.position ?? { x: 0, y: 0, z: 0 },
+        rotation: world?.rotation ?? { x: 0, y: 0, z: 0 },
+        scale: world?.scale ?? 1,
+      };
+    });
 }
 
 export async function saveProjectPreview(

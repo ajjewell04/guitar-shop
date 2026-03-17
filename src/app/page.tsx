@@ -23,15 +23,21 @@ type ProjectRow = {
 
 type ProjectNodesPayload = {
   nodes?: Array<{
-    transforms?: { position?: { x: number; y: number; z: number } } | null;
+    id: string;
+    parent_id: string | null;
+    transforms?: {
+      position?: { x: number; y: number; z: number };
+      rotation?: { x: number; y: number; z: number };
+      scale?: number;
+    } | null;
     asset?: { modelUrl?: string | null } | null;
   }>;
   error?: string;
 };
 
 export default function Home({
-  className,
-  ...props
+  className: _className,
+  ..._props
 }: React.ComponentPropsWithoutRef<"div">) {
   const [projects, setProjects] = useState<ProjectRow[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -182,7 +188,7 @@ export default function Home({
                   onClick={(e) => {
                     e.preventDefault();
                     onDelete(project.id);
-                  }} //🗑️
+                  }}
                 >
                   {deletingProjectId === project.id ? "Deleting..." : "Delete"}
                 </Button>

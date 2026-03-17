@@ -3,6 +3,7 @@ import { supabaseServer } from "@/lib/supabase";
 import { requireUser } from "@/app/api/_shared/auth";
 import { jsonError } from "@/app/api/_shared/http";
 import { normalizeNeckParams } from "@/lib/neck-params";
+import { buildDefaultNeckMountingFromParams } from "@/lib/mounting";
 import { S3_BUCKET } from "@/lib/s3";
 
 export async function POST(req: Request) {
@@ -123,7 +124,11 @@ export async function POST(req: Request) {
       preview_file_id: previewFileId,
       upload_status: null,
       last_updated: now,
-      meta: { source: "parametric_neck", neck: params },
+      meta: {
+        source: "parametric_neck",
+        neck: params,
+        mounting: buildDefaultNeckMountingFromParams(params),
+      },
     })
     .eq("id", asset.id);
 

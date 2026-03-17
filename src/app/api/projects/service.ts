@@ -34,6 +34,18 @@ export async function createProjectWithRoot(db: DbClient, name: string) {
     .single<{ project_id: string; root_node_id: string }>();
 }
 
+export async function promoteProjectRoot(
+  db: DbClient,
+  args: { projectId: string; newRootNodeId: string },
+) {
+  return db
+    .rpc("promote_project_root", {
+      p_project_id: args.projectId,
+      p_new_root_node_id: args.newRootNodeId,
+    })
+    .single<{ project_id: string; root_node_id: string }>();
+}
+
 export async function assignRootAsset(
   db: DbClient,
   rootNodeId: string,

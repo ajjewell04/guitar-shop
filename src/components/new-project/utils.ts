@@ -6,7 +6,13 @@ import type {
 
 export type ProjectNodesPayload = {
   nodes?: Array<{
-    transforms?: { position?: { x: number; y: number; z: number } } | null;
+    id: string;
+    parent_id: string | null;
+    transforms?: {
+      position?: { x: number; y: number; z: number };
+      rotation?: { x: number; y: number; z: number };
+      scale?: number;
+    } | null;
     asset?: { modelUrl?: string | null } | null;
   }>;
   error?: string;

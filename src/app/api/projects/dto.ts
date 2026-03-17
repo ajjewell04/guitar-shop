@@ -21,3 +21,8 @@ export const UpdateProjectPreviewBodySchema = z.object({
 export const PresignProjectPreviewBodySchema = z.object({
   projectId: z.uuid(),
 });
+
+export const PromoteProjectRootBodySchema = z.object({
+  projectId: z.uuid(),
+  newRootNodeId: z.uuid(),
+});
