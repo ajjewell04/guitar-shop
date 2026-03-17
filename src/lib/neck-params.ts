@@ -31,6 +31,13 @@ export const NeckParamsSchema = z.object({
   neckAngleDeg: z.number().min(-2).max(5).default(0),
 
   headstockAssetId: z.uuid().nullable().default(null),
+  headstockOffsetXMm: z.number().min(-500).max(500).default(0),
+  headstockOffsetYMm: z.number().min(-500).max(500).default(0),
+  headstockOffsetZMm: z.number().min(-500).max(500).default(0),
+  headstockRotXDeg: z.number().min(-360).max(360).default(0),
+  headstockRotYDeg: z.number().min(-360).max(360).default(0),
+  headstockRotZDeg: z.number().min(-360).max(360).default(0),
+  headstockScale: z.number().min(0.01).max(10).default(1),
 });
 
 export type NeckParams = z.infer<typeof NeckParamsSchema>;

@@ -1,6 +1,12 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 
 type Position = { x: number; y: number; z: number };
+type Rotation = { x: number; y: number; z: number };
+type NodeTransformsPatch = {
+  position?: Position;
+  rotation?: Rotation;
+  scale?: number;
+};
 
 export async function getOwnedProject(
   supabase: SupabaseClient,
@@ -54,13 +60,25 @@ export async function getNextSortIndex(
   return { nextSortIndex: (data?.sort_index ?? -1) + 1, error: null };
 }
 
-export function buildInitialTransforms(): { position: Position } {
-  return { position: { x: 0, y: 0, z: 0 } };
+export function buildInitialTransforms(): {
+  position: Position;
+  rotation: Rotation;
+  scale: number;
+} {
+  return {
+    position: { x: 0, y: 0, z: 0 },
+    rotation: { x: 0, y: 0, z: 0 },
+    scale: 1,
+  };
 }
 
-export function mergePosition(
+export function mergeTransforms(
   transforms: Record<string, unknown> | null,
-  position: Position,
+  patch: NodeTransformsPatch,
 ) {
-  return { ...(transforms ?? {}), position };
+  const next = { ...(transforms ?? {}) };
+  if (patch.position !== undefined) next.position = patch.position;
+  if (patch.rotation !== undefined) next.rotation = patch.rotation;
+  if (patch.scale !== undefined) next.scale = patch.scale;
+  return next;
 }

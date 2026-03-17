@@ -133,6 +133,17 @@ export default function WorkView({ children, onNewProject }: WorkviewProps) {
     return () => clearTimeout(handle);
   }, [searchText, isLibrary, query]);
 
+  useEffect(() => {
+    return () => {
+      if (!pathname?.startsWith("/projects/")) return;
+      const projectId = pathname.split("/")[2];
+      if (!projectId) return;
+      window.dispatchEvent(
+        new CustomEvent("project-workview-exit", { detail: { projectId } }),
+      );
+    };
+  }, [pathname]);
+
   return (
     <main className="flex flex-1 flex-col min-h-0 bg-(--background2) rounded-lg m-2 px-2 overflow-hidden">
       <header className="flex h-16 justify-between items-center">

@@ -1,9 +1,13 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 
+const PREVIEW_RIGHT_ELEVATION_RATIO = 0.28;
+
 export type PreviewNodeInput = {
   modelUrl: string;
   position?: { x: number; y: number; z: number } | null;
+  rotation?: { x: number; y: number; z: number } | null;
+  scale?: number | null;
 };
 
 export async function renderProjectPreview(
@@ -58,7 +62,15 @@ export async function renderProjectPreview(
 
         const placed = new THREE.Group();
         const pos = node.position ?? { x: 0, y: 0, z: 0 };
+        const rot = node.rotation ?? { x: 0, y: 0, z: 0 };
+        const scale = THREE.MathUtils.clamp(node.scale ?? 1, 0.01, 10);
         placed.position.set(pos.x, pos.y, pos.z);
+        placed.rotation.set(
+          THREE.MathUtils.degToRad(rot.x),
+          THREE.MathUtils.degToRad(rot.y),
+          THREE.MathUtils.degToRad(rot.z),
+        );
+        placed.scale.setScalar(scale);
         placed.add(model);
 
         root.add(placed);
@@ -77,7 +89,7 @@ export async function renderProjectPreview(
     const maxDim = Math.max(size.x, size.y, size.z) || 1;
     const distance = maxDim * 1.2;
 
-    camera.position.set(distance * 0.7, distance * 0.5, distance);
+    camera.position.set(distance, distance * PREVIEW_RIGHT_ELEVATION_RATIO, 0);
     camera.lookAt(0, 0, 0);
     camera.near = Math.max(maxDim / 100, 0.001);
     camera.far = maxDim * 100;

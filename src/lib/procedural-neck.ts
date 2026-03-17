@@ -29,6 +29,12 @@ function fretPositionMm(scaleMm: number, fret: number) {
   return scaleMm - scaleMm / Math.pow(2, fret / 12);
 }
 
+export function getNeckNutAnchorXmm(params: NeckParams) {
+  const scaleMm = params.scaleLengthIn * INCH_TO_MM;
+  const lastFretX = fretPositionMm(scaleMm, params.fretCount);
+  return -lastFretX * 0.55;
+}
+
 function ringCentroid(ring: THREE.Vector3[]) {
   const c = new THREE.Vector3();
   for (const p of ring) c.add(p);
@@ -45,13 +51,18 @@ function fingerboardCrownZ(y: number, halfW: number, radiusMm: number) {
 }
 
 export function buildProceduralNeckMesh(params: NeckParams) {
+  const PRE_NUT_STUB_MM = 16;
+
   const scaleMm = params.scaleLengthIn * INCH_TO_MM;
   const firstFretX = fretPositionMm(scaleMm, 1);
   const twelfthFretX = fretPositionMm(scaleMm, 12);
   const lastFretX = fretPositionMm(scaleMm, params.fretCount);
   const neckLengthMm = lastFretX + params.heelLengthMm;
+  const meshStartX = -PRE_NUT_STUB_MM;
+  const meshLengthMm = neckLengthMm + PRE_NUT_STUB_MM;
   const radiusStartMm = params.fingerboardRadiusStartIn * INCH_TO_MM;
   const radiusEndMm = params.fingerboardRadiusEndIn * INCH_TO_MM;
+  const tiltbackRad = THREE.MathUtils.degToRad(params.tiltbackAngleDeg);
 
   const stations = 120;
   const ringSegments = 72;
@@ -65,7 +76,7 @@ export function buildProceduralNeckMesh(params: NeckParams) {
 
   for (let i = 0; i < stations; i++) {
     const t = i / (stations - 1);
-    const x = neckLengthMm * t;
+    const x = meshStartX + meshLengthMm * t;
 
     const wT = x <= lastFretX ? x / Math.max(lastFretX, 1e-6) : 1;
     const widthAtFret = lerp(
@@ -136,7 +147,23 @@ export function buildProceduralNeckMesh(params: NeckParams) {
         y *= cornerScale;
       }
 
-      ring.push(new THREE.Vector3(x, y, z));
+      let px = x;
+      const py = y;
+      let pz = z;
+
+      // Apply tiltback only behind the nut with a smooth ramp from the nut break.
+      if (px < 0 && Math.abs(tiltbackRad) > 1e-6) {
+        const tiltT = smoothstep(clamp01(-px / PRE_NUT_STUB_MM));
+        const theta = tiltbackRad * tiltT;
+        const cos = Math.cos(theta);
+        const sin = Math.sin(theta);
+        const rx = px * cos - pz * sin;
+        const rz = px * sin + pz * cos;
+        px = rx;
+        pz = rz;
+      }
+
+      ring.push(new THREE.Vector3(px, py, pz));
     }
 
     rings.push(ring);
@@ -198,7 +225,7 @@ export function buildProceduralNeckMesh(params: NeckParams) {
   geometry.computeVertexNormals();
 
   // Place around playable region
-  geometry.translate(-lastFretX * 0.55, 0, 0);
+  geometry.translate(getNeckNutAnchorXmm(params), 0, 0);
 
   const mat = new THREE.MeshStandardMaterial({
     color: "#c48b5b",
@@ -210,7 +237,6 @@ export function buildProceduralNeckMesh(params: NeckParams) {
   const mesh = new THREE.Mesh(geometry, mat);
   mesh.castShadow = true;
   mesh.receiveShadow = true;
-  mesh.rotation.y = THREE.MathUtils.degToRad(params.neckAngleDeg);
 
   return mesh;
 }

@@ -1,6 +1,8 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 
+const PREVIEW_RIGHT_ELEVATION_RATIO = 0.28;
+
 export async function renderModelPreview(file: File): Promise<Blob> {
   const width = 640;
   const height = 640;
@@ -47,7 +49,7 @@ export async function renderModelPreview(file: File): Promise<Blob> {
 
     const maxDim = Math.max(size.x, size.y, size.z) || 1;
     const distance = maxDim * 1.2;
-    camera.position.set(distance * 0.7, distance * 0.5, distance);
+    camera.position.set(distance, distance * PREVIEW_RIGHT_ELEVATION_RATIO, 0);
     camera.lookAt(0, 0, 0);
     camera.near = maxDim / 100;
     camera.far = maxDim * 100;

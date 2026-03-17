@@ -3,7 +3,11 @@
 import type { PreviewNodeInput } from "@/lib/project-preview";
 
 type NodeLike = {
-  transforms?: { position?: { x: number; y: number; z: number } } | null;
+  transforms?: {
+    position?: { x: number; y: number; z: number };
+    rotation?: { x: number; y: number; z: number };
+    scale?: number;
+  } | null;
   asset?: { modelUrl?: string | null } | null;
 };
 
@@ -13,6 +17,8 @@ export function toPreviewNodes(nodes: NodeLike[]): PreviewNodeInput[] {
     .map((node) => ({
       modelUrl: node.asset!.modelUrl!,
       position: node.transforms?.position ?? { x: 0, y: 0, z: 0 },
+      rotation: node.transforms?.rotation ?? { x: 0, y: 0, z: 0 },
+      scale: node.transforms?.scale ?? 1,
     }));
 }
 

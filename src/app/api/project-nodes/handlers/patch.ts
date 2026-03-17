@@ -6,7 +6,7 @@ import { jsonError } from "@/app/api/_shared/http";
 import { PatchProjectNodeBodySchema } from "@/app/api/project-nodes/dto";
 import {
   getOwnedProject,
-  mergePosition,
+  mergeTransforms,
 } from "@/app/api/project-nodes/service";
 
 export async function handlePatch(req: Request) {
@@ -35,7 +35,11 @@ export async function handlePatch(req: Request) {
 
   if (!project || reason === "forbidden") return jsonError("Forbidden", 403);
 
-  const nextTransforms = mergePosition(node.transforms, parse.data.position);
+  const nextTransforms = mergeTransforms(node.transforms, {
+    position: parse.data.position,
+    rotation: parse.data.rotation,
+    scale: parse.data.scale,
+  });
 
   const { error: updateError } = await supabase
     .from("project_nodes")

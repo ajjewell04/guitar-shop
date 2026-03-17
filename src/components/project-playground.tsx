@@ -16,7 +16,10 @@ import {
   TransformControls,
   useGLTF,
 } from "@react-three/drei";
-import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
+import type {
+  OrbitControls as OrbitControlsImpl,
+  TransformControls as TransformControlsImpl,
+} from "three-stdlib";
 import * as THREE from "three";
 import type { GLTF } from "three/examples/jsm/loaders/GLTFLoader.js";
 import Image from "next/image";
@@ -33,7 +36,9 @@ import {
   normalizeNeckParams,
   type NeckParams,
 } from "@/lib/neck-params";
-import ProceduralNeckMesh from "@/components/procedural-neck-mesh";
+import ProceduralNeckMesh, {
+  type HeadstockLoadState,
+} from "@/components/procedural-neck-mesh";
 
 type PartType =
   | "all"
@@ -66,6 +71,13 @@ type LibraryAsset = {
   modelUrl: string | null;
 };
 
+type Vec3 = { x: number; y: number; z: number };
+type NodeTransforms = {
+  position: Vec3;
+  rotation: Vec3;
+  scale: number;
+};
+
 type ProjectNode = {
   id: string;
   name: string;
@@ -74,7 +86,9 @@ type ProjectNode = {
   sort_index: number;
   asset_id: string | null;
   transforms?: {
-    position?: { x: number; y: number; z: number };
+    position?: Vec3;
+    rotation?: Vec3;
+    scale?: number;
   } | null;
   asset?: {
     id: string;
@@ -93,6 +107,13 @@ type ProjectNodesResponse = {
   error?: string;
 };
 
+type ProjectNodeDeleteResponse = {
+  ok?: boolean;
+  rootCleared?: boolean;
+  deletedNodeId?: string;
+  error?: string;
+};
+
 type NumericNeckKey =
   | "scaleLengthIn"
   | "fretCount"
@@ -108,7 +129,14 @@ type NumericNeckKey =
   | "heelThicknessMm"
   | "heelCornerRadiusMm"
   | "tiltbackAngleDeg"
-  | "neckAngleDeg";
+  | "neckAngleDeg"
+  | "headstockOffsetXMm"
+  | "headstockOffsetYMm"
+  | "headstockOffsetZMm"
+  | "headstockRotXDeg"
+  | "headstockRotYDeg"
+  | "headstockRotZDeg"
+  | "headstockScale";
 
 type NumericNeckMeta = {
   label: string;
@@ -117,6 +145,131 @@ type NumericNeckMeta = {
   step: number;
   integer?: true;
 };
+
+type TransformMode = "translate" | "rotate" | "scale";
+type NeckTransformTarget = "neck" | "headstock";
+type TransformInputKey =
+  | "positionX"
+  | "positionY"
+  | "positionZ"
+  | "rotationX"
+  | "rotationY"
+  | "rotationZ"
+  | "scale";
+type TransformInputDraft = Record<TransformInputKey, string>;
+
+const ROTATION_MIN = -360;
+const ROTATION_MAX = 360;
+const SCALE_MIN = 0.01;
+const SCALE_MAX = 10;
+const DEFAULT_NODE_TRANSFORMS: NodeTransforms = {
+  position: { x: 0, y: 0, z: 0 },
+  rotation: { x: 0, y: 0, z: 0 },
+  scale: 1,
+};
+const TRANSFORM_MODES: TransformMode[] = ["translate", "rotate", "scale"];
+const TRANSFORM_FIELDS: Array<{
+  key: TransformInputKey;
+  label: string;
+  min?: number;
+  max?: number;
+  step: number;
+}> = [
+  { key: "positionX", label: "Position X", step: 0.01 },
+  { key: "positionY", label: "Position Y", step: 0.01 },
+  { key: "positionZ", label: "Position Z", step: 0.01 },
+  {
+    key: "rotationX",
+    label: "Rotation X (deg)",
+    min: ROTATION_MIN,
+    max: ROTATION_MAX,
+    step: 0.1,
+  },
+  {
+    key: "rotationY",
+    label: "Rotation Y (deg)",
+    min: ROTATION_MIN,
+    max: ROTATION_MAX,
+    step: 0.1,
+  },
+  {
+    key: "rotationZ",
+    label: "Rotation Z (deg)",
+    min: ROTATION_MIN,
+    max: ROTATION_MAX,
+    step: 0.1,
+  },
+  {
+    key: "scale",
+    label: "Scale",
+    min: SCALE_MIN,
+    max: SCALE_MAX,
+    step: 0.01,
+  },
+];
+const TRANSFORM_FIELDS_BY_MODE: Record<TransformMode, TransformInputKey[]> = {
+  translate: ["positionX", "positionY", "positionZ"],
+  rotate: ["rotationX", "rotationY", "rotationZ"],
+  scale: ["scale"],
+};
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function clampRotation(value: number) {
+  return clamp(value, ROTATION_MIN, ROTATION_MAX);
+}
+
+function clampScale(value: number) {
+  return clamp(value, SCALE_MIN, SCALE_MAX);
+}
+
+function finiteNumber(value: unknown, fallback: number) {
+  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+}
+
+function normalizeNodeTransforms(
+  transforms?: Partial<NodeTransforms> | null,
+): NodeTransforms {
+  const rawPos = transforms?.position;
+  const rawRot = transforms?.rotation;
+  return {
+    position: {
+      x: finiteNumber(rawPos?.x, DEFAULT_NODE_TRANSFORMS.position.x),
+      y: finiteNumber(rawPos?.y, DEFAULT_NODE_TRANSFORMS.position.y),
+      z: finiteNumber(rawPos?.z, DEFAULT_NODE_TRANSFORMS.position.z),
+    },
+    rotation: {
+      x: clampRotation(
+        finiteNumber(rawRot?.x, DEFAULT_NODE_TRANSFORMS.rotation.x),
+      ),
+      y: clampRotation(
+        finiteNumber(rawRot?.y, DEFAULT_NODE_TRANSFORMS.rotation.y),
+      ),
+      z: clampRotation(
+        finiteNumber(rawRot?.z, DEFAULT_NODE_TRANSFORMS.rotation.z),
+      ),
+    },
+    scale: clampScale(
+      finiteNumber(transforms?.scale, DEFAULT_NODE_TRANSFORMS.scale),
+    ),
+  };
+}
+
+function toTransformInputDraft(
+  transforms: NodeTransforms,
+): TransformInputDraft {
+  return {
+    positionX: String(transforms.position.x),
+    positionY: String(transforms.position.y),
+    positionZ: String(transforms.position.z),
+    rotationX: String(transforms.rotation.x),
+    rotationY: String(transforms.rotation.y),
+    rotationZ: String(transforms.rotation.z),
+    scale: String(transforms.scale),
+  };
+}
 
 const NUMERIC_NECK_META: Record<NumericNeckKey, NumericNeckMeta> = {
   scaleLengthIn: { label: "Scale Length (in)", min: 22.5, max: 27, step: 0.01 },
@@ -174,19 +327,129 @@ const NUMERIC_NECK_META: Record<NumericNeckKey, NumericNeckMeta> = {
     step: 0.1,
   },
   neckAngleDeg: { label: "Neck Angle (deg)", min: -2, max: 5, step: 0.1 },
+  headstockOffsetXMm: {
+    label: "Headstock Offset X (mm)",
+    min: -500,
+    max: 500,
+    step: 0.1,
+  },
+  headstockOffsetYMm: {
+    label: "Headstock Offset Y (mm)",
+    min: -500,
+    max: 500,
+    step: 0.1,
+  },
+  headstockOffsetZMm: {
+    label: "Headstock Offset Z (mm)",
+    min: -500,
+    max: 500,
+    step: 0.1,
+  },
+  headstockRotXDeg: {
+    label: "Headstock Rot X (deg)",
+    min: -360,
+    max: 360,
+    step: 0.1,
+  },
+  headstockRotYDeg: {
+    label: "Headstock Rot Y (deg)",
+    min: -360,
+    max: 360,
+    step: 0.1,
+  },
+  headstockRotZDeg: {
+    label: "Headstock Rot Z (deg)",
+    min: -360,
+    max: 360,
+    step: 0.1,
+  },
+  headstockScale: {
+    label: "Headstock Scale",
+    min: 0.01,
+    max: 10,
+    step: 0.01,
+  },
 };
 
 const NUMERIC_NECK_KEYS = Object.keys(NUMERIC_NECK_META) as NumericNeckKey[];
-const GENERAL_NUMERIC_NECK_KEYS = NUMERIC_NECK_KEYS.filter(
-  (k) => k !== "fingerboardRadiusStartIn" && k !== "fingerboardRadiusEndIn",
-);
-
+const GENERAL_DIMENSION_NECK_KEYS: NumericNeckKey[] = [
+  "scaleLengthIn",
+  "fretCount",
+  "nutWidthMm",
+  "widthAtLastFretMm",
+  "thicknessAt1stMm",
+  "thicknessAt12thMm",
+];
+const PROFILE_NUMERIC_NECK_KEYS: NumericNeckKey[] = ["asymmetryMm"];
+const HEEL_NUMERIC_NECK_KEYS: NumericNeckKey[] = [
+  "heelWidthMm",
+  "heelLengthMm",
+  "heelThicknessMm",
+  "heelCornerRadiusMm",
+];
+const ALIGNMENT_NUMERIC_NECK_KEYS: NumericNeckKey[] = [
+  "tiltbackAngleDeg",
+  "neckAngleDeg",
+];
 function toNumericInputDraft(
   params: NeckParams,
 ): Record<NumericNeckKey, string> {
   return Object.fromEntries(
     NUMERIC_NECK_KEYS.map((k) => [k, String(params[k] as number)]),
   ) as Record<NumericNeckKey, string>;
+}
+
+function clampNeckNumber(key: NumericNeckKey, value: number) {
+  const meta = NUMERIC_NECK_META[key];
+  return clamp(value, meta.min, meta.max);
+}
+
+function neckParamsToHeadstockTransforms(params: NeckParams): NodeTransforms {
+  return {
+    position: {
+      x: clampNeckNumber("headstockOffsetXMm", params.headstockOffsetXMm),
+      y: clampNeckNumber("headstockOffsetYMm", params.headstockOffsetYMm),
+      z: clampNeckNumber("headstockOffsetZMm", params.headstockOffsetZMm),
+    },
+    rotation: {
+      x: clampNeckNumber("headstockRotXDeg", params.headstockRotXDeg),
+      y: clampNeckNumber("headstockRotYDeg", params.headstockRotYDeg),
+      z: clampNeckNumber("headstockRotZDeg", params.headstockRotZDeg),
+    },
+    scale: clampNeckNumber("headstockScale", params.headstockScale),
+  };
+}
+
+function headstockTransformsToNeckPatch(
+  transforms: NodeTransforms,
+): Partial<NeckParams> {
+  return {
+    headstockOffsetXMm: clampNeckNumber(
+      "headstockOffsetXMm",
+      transforms.position.x,
+    ),
+    headstockOffsetYMm: clampNeckNumber(
+      "headstockOffsetYMm",
+      transforms.position.y,
+    ),
+    headstockOffsetZMm: clampNeckNumber(
+      "headstockOffsetZMm",
+      transforms.position.z,
+    ),
+    headstockRotXDeg: clampNeckNumber(
+      "headstockRotXDeg",
+      transforms.rotation.x,
+    ),
+    headstockRotYDeg: clampNeckNumber(
+      "headstockRotYDeg",
+      transforms.rotation.y,
+    ),
+    headstockRotZDeg: clampNeckNumber(
+      "headstockRotZDeg",
+      transforms.rotation.z,
+    ),
+    headstockScale: clampNeckNumber("headstockScale", transforms.scale),
+  };
 }
 
 function ModelAssetView({
@@ -223,8 +486,13 @@ export default function ProjectPlayground({
   const [libraryAssets, setLibraryAssets] = useState<LibraryAsset[]>([]);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [addingAssetId, setAddingAssetId] = useState<string | null>(null);
+  const [deletingNodeId, setDeletingNodeId] = useState<string | null>(null);
   const [orbitEnabled, setOrbitEnabled] = useState(true);
-  const [selectedObject, setSelectedObject] = useState<THREE.Group | null>(
+  const [transformMode, setTransformMode] =
+    useState<TransformMode>("translate");
+  const [neckTransformTarget, setNeckTransformTarget] =
+    useState<NeckTransformTarget>("neck");
+  const [selectedObject, setSelectedObject] = useState<THREE.Object3D | null>(
     null,
   );
   const [loadedNodeIds, setLoadedNodeIds] = useState<Set<string>>(new Set());
@@ -239,20 +507,55 @@ export default function ProjectPlayground({
   const [neckInputDraftByNodeId, setNeckInputDraftByNodeId] = useState<
     Record<string, Partial<Record<NumericNeckKey, string>>>
   >({});
+  const [headstockLoadByNodeId, setHeadstockLoadByNodeId] = useState<
+    Record<string, HeadstockLoadState>
+  >({});
+  const [transformInputDraftByNodeId, setTransformInputDraftByNodeId] =
+    useState<Record<string, TransformInputDraft>>({});
+  const [
+    headstockTransformInputDraftByNodeId,
+    setHeadstockTransformInputDraftByNodeId,
+  ] = useState<Record<string, TransformInputDraft>>({});
 
   const nodeRefs = useRef<Record<string, THREE.Group | null>>({});
+  const headstockTranslateRefs = useRef<Record<string, THREE.Group | null>>({});
+  const headstockRotateScaleRefs = useRef<Record<string, THREE.Group | null>>(
+    {},
+  );
   const saveTimerRef = useRef<number | null>(null);
 
   const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const orbitRef = useRef<OrbitControlsImpl | null>(null);
+  const transformRef = useRef<TransformControlsImpl | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const recenterRafRef = useRef<number | null>(null);
 
   const projectIdRef = useRef<string | undefined>(projectId);
   const nodesRef = useRef<ProjectNode[]>([]);
   const previewFlushInFlightRef = useRef<Promise<void> | null>(null);
+
+  const resolveSelectedObject = useCallback(
+    (
+      nodeId: string | null,
+      mode: TransformMode,
+      neckTarget: NeckTransformTarget,
+    ): THREE.Object3D | null => {
+      if (!nodeId) return null;
+      const node = nodesRef.current.find((n) => n.id === nodeId);
+      if (!node) return null;
+      const isNeck = node.asset?.part_type === "neck";
+      if (!isNeck || neckTarget === "neck") {
+        return nodeRefs.current[nodeId] ?? null;
+      }
+      if (mode === "translate") {
+        return headstockTranslateRefs.current[nodeId] ?? null;
+      }
+      return headstockRotateScaleRefs.current[nodeId] ?? null;
+    },
+    [],
+  );
 
   const expectedModelNodes = useMemo(
     () => nodes.filter((n) => !!n.asset?.modelUrl).map((n) => n.id),
@@ -290,18 +593,43 @@ export default function ProjectPlayground({
     nodesRef.current = nodes;
   }, [nodes]);
 
+  useEffect(() => {
+    setSelectedObject(
+      resolveSelectedObject(selectedNodeId, transformMode, neckTransformTarget),
+    );
+  }, [
+    selectedNodeId,
+    transformMode,
+    neckTransformTarget,
+    nodes,
+    resolveSelectedObject,
+  ]);
+
+  async function loadFreshPreviewNodes(projectId: string) {
+    const res = await fetch(`/api/project-nodes?projectId=${projectId}`, {
+      cache: "no-store",
+    });
+    const data = (await res.json().catch(() => ({}))) as ProjectNodesResponse;
+    if (!res.ok) {
+      throw new Error(data?.error ?? "Failed to load nodes for preview");
+    }
+    return toPreviewNodes(data.nodes ?? []);
+  }
+
   const flushProjectPreview = useCallback(() => {
     if (previewFlushInFlightRef.current) return;
 
     const currentProjectId = projectIdRef.current;
     if (!currentProjectId) return;
 
-    const previewNodes = toPreviewNodes(nodesRef.current);
-    if (!previewNodes.length) return;
-
     previewFlushInFlightRef.current = (async () => {
       await flushPendingNodeSaves();
-      const previewNodes = toPreviewNodes(nodesRef.current);
+      let previewNodes = toPreviewNodes(nodesRef.current);
+      try {
+        previewNodes = await loadFreshPreviewNodes(currentProjectId);
+      } catch {
+        // Fall back to in-memory nodes if refresh fails.
+      }
       if (!previewNodes.length) return;
       await saveProjectPreview(currentProjectId, previewNodes);
       window.dispatchEvent(new Event("projects-changed"));
@@ -326,6 +654,20 @@ export default function ProjectPlayground({
     return () => {
       window.removeEventListener("pagehide", onPageHide);
       document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [flushProjectPreview]);
+
+  useEffect(() => {
+    const onWorkviewExit = (event: Event) => {
+      const detail = (event as CustomEvent<{ projectId?: string }>).detail;
+      if (detail?.projectId && detail.projectId !== projectIdRef.current)
+        return;
+      flushProjectPreview();
+    };
+
+    window.addEventListener("project-workview-exit", onWorkviewExit);
+    return () => {
+      window.removeEventListener("project-workview-exit", onWorkviewExit);
     };
   }, [flushProjectPreview]);
 
@@ -517,33 +859,130 @@ export default function ProjectPlayground({
     }
   }
 
-  const pendingNodePositionsRef = useRef<
-    Map<string, { x: number; y: number; z: number }>
-  >(new Map());
+  async function deleteSelectedModel() {
+    const nodeId = selectedNodeId;
+    if (!nodeId) return;
 
-  function applyLocalNodePosition(
+    setDeletingNodeId(nodeId);
+    setErrorMessage(null);
+
+    try {
+      await flushPendingNodeSaves();
+
+      const res = await fetch("/api/project-nodes", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nodeId }),
+      });
+      const payload = (await res
+        .json()
+        .catch(() => ({}))) as ProjectNodeDeleteResponse;
+
+      if (!res.ok) {
+        throw new Error(
+          payload?.error ?? "Failed to delete model from this project.",
+        );
+      }
+
+      if (typeof payload.deletedNodeId === "string") {
+        clearNodeLocalDraftState(payload.deletedNodeId);
+      }
+
+      await loadProjectData();
+      setSelectedNodeId(null);
+      setSelectedObject(null);
+    } catch (e) {
+      setErrorMessage(
+        e instanceof Error ? e.message : "Failed to delete selected model.",
+      );
+      setStatus("error");
+    } finally {
+      setDeletingNodeId(null);
+    }
+  }
+
+  const pendingNodeTransformsRef = useRef<Map<string, NodeTransforms>>(
+    new Map(),
+  );
+
+  function clearNodeLocalDraftState(nodeId: string) {
+    nodeRefs.current[nodeId] = null;
+    headstockTranslateRefs.current[nodeId] = null;
+    headstockRotateScaleRefs.current[nodeId] = null;
+    pendingNodeTransformsRef.current.delete(nodeId);
+
+    setTransformInputDraftByNodeId((prev) => {
+      if (!(nodeId in prev)) return prev;
+      const next = { ...prev };
+      delete next[nodeId];
+      return next;
+    });
+    setNeckDraftByNodeId((prev) => {
+      if (!(nodeId in prev)) return prev;
+      const next = { ...prev };
+      delete next[nodeId];
+      return next;
+    });
+    setNeckInputDraftByNodeId((prev) => {
+      if (!(nodeId in prev)) return prev;
+      const next = { ...prev };
+      delete next[nodeId];
+      return next;
+    });
+    setHeadstockLoadByNodeId((prev) => {
+      if (!(nodeId in prev)) return prev;
+      const next = { ...prev };
+      delete next[nodeId];
+      return next;
+    });
+    setHeadstockTransformInputDraftByNodeId((prev) => {
+      if (!(nodeId in prev)) return prev;
+      const next = { ...prev };
+      delete next[nodeId];
+      return next;
+    });
+  }
+
+  function applyLocalNodeTransforms(
     nodeId: string,
-    pos: { x: number; y: number; z: number },
+    transforms: NodeTransforms,
   ) {
     setNodes((prev) => {
       const next = prev.map((n) =>
         n.id === nodeId
-          ? { ...n, transforms: { ...(n.transforms ?? {}), position: pos } }
+          ? {
+              ...n,
+              transforms: {
+                ...(n.transforms ?? {}),
+                position: transforms.position,
+                rotation: transforms.rotation,
+                scale: transforms.scale,
+              },
+            }
           : n,
       );
       nodesRef.current = next;
       return next;
     });
+    setTransformInputDraftByNodeId((prev) => ({
+      ...prev,
+      [nodeId]: toTransformInputDraft(transforms),
+    }));
   }
 
-  async function persistNodePosition(
+  async function persistNodeTransforms(
     nodeId: string,
-    pos: { x: number; y: number; z: number },
+    transforms: NodeTransforms,
   ) {
     const res = await fetch("/api/project-nodes", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ nodeId, position: pos }),
+      body: JSON.stringify({
+        nodeId,
+        position: transforms.position,
+        rotation: transforms.rotation,
+        scale: transforms.scale,
+      }),
     });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
@@ -551,22 +990,26 @@ export default function ProjectPlayground({
     }
   }
 
-  function scheduleSave(
+  function scheduleTransformSave(
     nodeId: string | null,
-    pos: { x: number; y: number; z: number } | null,
+    transforms: NodeTransforms | null,
   ) {
-    if (!nodeId || !pos) return;
+    if (!nodeId || !transforms) return;
 
-    applyLocalNodePosition(nodeId, pos);
-    pendingNodePositionsRef.current.set(nodeId, pos);
+    applyLocalNodeTransforms(nodeId, transforms);
+    pendingNodeTransformsRef.current.set(nodeId, transforms);
 
     if (saveTimerRef.current) window.clearTimeout(saveTimerRef.current);
 
     saveTimerRef.current = window.setTimeout(async () => {
-      const pending = Array.from(pendingNodePositionsRef.current.entries());
-      pendingNodePositionsRef.current.clear();
+      const pending = Array.from(pendingNodeTransformsRef.current.entries());
+      pendingNodeTransformsRef.current.clear();
       try {
-        await Promise.all(pending.map(([id, p]) => persistNodePosition(id, p)));
+        await Promise.all(
+          pending.map(([id, nextTransforms]) =>
+            persistNodeTransforms(id, nextTransforms),
+          ),
+        );
       } catch {
         /* empty */
       }
@@ -578,10 +1021,14 @@ export default function ProjectPlayground({
       window.clearTimeout(saveTimerRef.current);
       saveTimerRef.current = null;
     }
-    const pending = Array.from(pendingNodePositionsRef.current.entries());
+    const pending = Array.from(pendingNodeTransformsRef.current.entries());
     if (!pending.length) return;
-    pendingNodePositionsRef.current.clear();
-    await Promise.all(pending.map(([id, p]) => persistNodePosition(id, p)));
+    pendingNodeTransformsRef.current.clear();
+    await Promise.all(
+      pending.map(([id, nextTransforms]) =>
+        persistNodeTransforms(id, nextTransforms),
+      ),
+    );
   }
 
   const loadedModelCount = useMemo(
@@ -628,6 +1075,10 @@ export default function ProjectPlayground({
     () => nodes.find((n) => n.id === selectedNodeId) ?? null,
     [nodes, selectedNodeId],
   );
+  const selectedNodeTransforms = useMemo(
+    () => normalizeNodeTransforms(selectedNode?.transforms),
+    [selectedNode],
+  );
 
   const selectedNeckNode = useMemo(() => {
     if (!selectedNode?.asset) return null;
@@ -635,10 +1086,85 @@ export default function ProjectPlayground({
     return selectedNode;
   }, [selectedNode]);
 
+  useEffect(() => {
+    if (!selectedNode?.id) return;
+    setTransformInputDraftByNodeId((prev) => {
+      if (prev[selectedNode.id]) return prev;
+      return {
+        ...prev,
+        [selectedNode.id]: toTransformInputDraft(selectedNodeTransforms),
+      };
+    });
+  }, [selectedNode, selectedNodeTransforms]);
+
+  useEffect(() => {
+    if (selectedNodeId) return;
+    setSelectedObject(null);
+  }, [selectedNodeId]);
+
   const headstockAssets = useMemo(
     () => libraryAssets.filter((a) => a.part_type === "headstock"),
     [libraryAssets],
   );
+  const headstockAssetById = useMemo(
+    () => new Map(headstockAssets.map((asset) => [asset.id, asset])),
+    [headstockAssets],
+  );
+
+  const getHeadstockRenderState = useCallback(
+    (params: NeckParams | null) => {
+      if (!params?.headstockAssetId) {
+        return {
+          asset: null as LibraryAsset | null,
+          url: null as string | null,
+          unavailableError: null as string | null,
+        };
+      }
+
+      const asset = headstockAssetById.get(params.headstockAssetId) ?? null;
+      const url = asset?.modelUrl ?? null;
+      let unavailableError: string | null = null;
+      if (!asset) {
+        unavailableError =
+          "Selected headstock is not available in your library.";
+      } else if (!url) {
+        unavailableError = "Selected headstock does not have a model file yet.";
+      }
+
+      return { asset, url, unavailableError };
+    },
+    [headstockAssetById],
+  );
+
+  const selectedNeckParams = useMemo(
+    () => (selectedNeckNode ? getNeckParamsForNode(selectedNeckNode) : null),
+    [selectedNeckNode, neckDraftByNodeId],
+  );
+  const selectedNeckHeadstockState = useMemo(
+    () => getHeadstockRenderState(selectedNeckParams),
+    [getHeadstockRenderState, selectedNeckParams],
+  );
+  const canTargetSelectedHeadstock = useMemo(
+    () =>
+      !!selectedNeckParams?.headstockAssetId &&
+      !!selectedNeckHeadstockState.url &&
+      !selectedNeckHeadstockState.unavailableError,
+    [selectedNeckHeadstockState, selectedNeckParams],
+  );
+
+  useEffect(() => {
+    if (!selectedNeckNode && neckTransformTarget !== "neck") {
+      setNeckTransformTarget("neck");
+      return;
+    }
+    if (
+      selectedNeckNode &&
+      neckTransformTarget === "headstock" &&
+      !canTargetSelectedHeadstock
+    ) {
+      setNeckTransformTarget("neck");
+    }
+  }, [canTargetSelectedHeadstock, neckTransformTarget, selectedNeckNode]);
 
   useEffect(() => {
     if (!selectedNeckNode?.id) return;
@@ -657,6 +1183,19 @@ export default function ProjectPlayground({
       const params = raw ? normalizeNeckParams(raw) : DEFAULT_NECK_PARAMS;
       return { ...prev, [selectedNeckNode.id]: toNumericInputDraft(params) };
     });
+
+    setHeadstockTransformInputDraftByNodeId((prev) => {
+      if (prev[selectedNeckNode.id]) return prev;
+      const raw = (selectedNeckNode.asset?.meta as { neck?: unknown } | null)
+        ?.neck;
+      const params = raw ? normalizeNeckParams(raw) : DEFAULT_NECK_PARAMS;
+      return {
+        ...prev,
+        [selectedNeckNode.id]: toTransformInputDraft(
+          neckParamsToHeadstockTransforms(params),
+        ),
+      };
+    });
   }, [selectedNeckNode]);
 
   function updateNeckDraft(nodeId: string, patch: Partial<NeckParams>) {
@@ -668,6 +1207,24 @@ export default function ProjectPlayground({
       }),
     }));
   }
+
+  const setHeadstockLoadState = useCallback(
+    (nodeId: string, next: HeadstockLoadState) => {
+      setHeadstockLoadByNodeId((prev) => {
+        const current = prev[nodeId];
+        const nextMessage = next.message ?? null;
+        const currentMessage = current?.message ?? null;
+        if (current?.status === next.status && currentMessage === nextMessage) {
+          return prev;
+        }
+        return {
+          ...prev,
+          [nodeId]: { status: next.status, message: nextMessage },
+        };
+      });
+    },
+    [],
+  );
 
   async function createParameterizedNeck() {
     if (!projectId || creatingNeck) return;
@@ -714,6 +1271,121 @@ export default function ProjectPlayground({
     return raw ? normalizeNeckParams(raw) : DEFAULT_NECK_PARAMS;
   }
 
+  function getHeadstockTransformsForNode(nodeId: string): NodeTransforms {
+    const node = nodesRef.current.find((n) => n.id === nodeId);
+    if (!node || node.asset?.part_type !== "neck") {
+      return DEFAULT_NODE_TRANSFORMS;
+    }
+    const params = getNeckParamsForNode(node) ?? DEFAULT_NECK_PARAMS;
+    return neckParamsToHeadstockTransforms(params);
+  }
+
+  function applyHeadstockTransformsToDraft(
+    nodeId: string,
+    transforms: NodeTransforms,
+  ) {
+    const node = nodesRef.current.find((n) => n.id === nodeId);
+    const raw = (node?.asset?.meta as { neck?: unknown } | null)?.neck;
+    const fallbackParams = raw ? normalizeNeckParams(raw) : DEFAULT_NECK_PARAMS;
+    const clampedTransforms: NodeTransforms = {
+      position: {
+        x: clampNeckNumber("headstockOffsetXMm", transforms.position.x),
+        y: clampNeckNumber("headstockOffsetYMm", transforms.position.y),
+        z: clampNeckNumber("headstockOffsetZMm", transforms.position.z),
+      },
+      rotation: {
+        x: clampNeckNumber("headstockRotXDeg", transforms.rotation.x),
+        y: clampNeckNumber("headstockRotYDeg", transforms.rotation.y),
+        z: clampNeckNumber("headstockRotZDeg", transforms.rotation.z),
+      },
+      scale: clampNeckNumber("headstockScale", transforms.scale),
+    };
+    const patch = headstockTransformsToNeckPatch(clampedTransforms);
+
+    setNeckDraftByNodeId((prev) => ({
+      ...prev,
+      [nodeId]: normalizeNeckParams({
+        ...(prev[nodeId] ?? fallbackParams),
+        ...patch,
+      }),
+    }));
+    setNeckInputDraftByNodeId((prev) => ({
+      ...prev,
+      [nodeId]: {
+        ...(prev[nodeId] ?? {}),
+        headstockOffsetXMm: String(patch.headstockOffsetXMm),
+        headstockOffsetYMm: String(patch.headstockOffsetYMm),
+        headstockOffsetZMm: String(patch.headstockOffsetZMm),
+        headstockRotXDeg: String(patch.headstockRotXDeg),
+        headstockRotYDeg: String(patch.headstockRotYDeg),
+        headstockRotZDeg: String(patch.headstockRotZDeg),
+        headstockScale: String(patch.headstockScale),
+      },
+    }));
+    setHeadstockTransformInputDraftByNodeId((prev) => ({
+      ...prev,
+      [nodeId]: toTransformInputDraft(clampedTransforms),
+    }));
+  }
+
+  function snapshotHeadstockTransformsFromObjects(
+    nodeId: string,
+    mode: TransformMode,
+  ): NodeTransforms {
+    const current = getHeadstockTransformsForNode(nodeId);
+    const translateObj = headstockTranslateRefs.current[nodeId];
+    const rotateScaleObj = headstockRotateScaleRefs.current[nodeId];
+
+    const position = { ...current.position };
+    if (translateObj) {
+      position.x = clampNeckNumber(
+        "headstockOffsetXMm",
+        translateObj.position.x,
+      );
+      position.y = clampNeckNumber(
+        "headstockOffsetYMm",
+        translateObj.position.y,
+      );
+      position.z = clampNeckNumber(
+        "headstockOffsetZMm",
+        translateObj.position.z,
+      );
+      translateObj.position.set(position.x, position.y, position.z);
+    }
+
+    const rotation = { ...current.rotation };
+    let scale = current.scale;
+    if (rotateScaleObj) {
+      rotation.x = clampNeckNumber(
+        "headstockRotXDeg",
+        THREE.MathUtils.radToDeg(rotateScaleObj.rotation.x),
+      );
+      rotation.y = clampNeckNumber(
+        "headstockRotYDeg",
+        THREE.MathUtils.radToDeg(rotateScaleObj.rotation.y),
+      );
+      rotation.z = clampNeckNumber(
+        "headstockRotZDeg",
+        THREE.MathUtils.radToDeg(rotateScaleObj.rotation.z),
+      );
+      rotateScaleObj.rotation.set(
+        THREE.MathUtils.degToRad(rotation.x),
+        THREE.MathUtils.degToRad(rotation.y),
+        THREE.MathUtils.degToRad(rotation.z),
+      );
+
+      scale = clampNeckNumber(
+        "headstockScale",
+        mode === "scale"
+          ? getActiveAxisUniformScale(rotateScaleObj)
+          : rotateScaleObj.scale.x,
+      );
+      rotateScaleObj.scale.setScalar(scale);
+    }
+
+    return { position, rotation, scale };
+  }
+
   async function exportGroupToGlb(group: THREE.Group): Promise<File> {
     const exporter = new GLTFExporter();
     const buffer = await new Promise<ArrayBuffer>((resolve, reject) => {
@@ -736,6 +1408,22 @@ export default function ProjectPlayground({
     if (!node.asset?.id) return;
     const draft = neckDraftByNodeId[node.id];
     if (!draft) return;
+    if (!draft.headstockAssetId) {
+      setErrorMessage("Please select a headstock asset.");
+      return;
+    }
+
+    const headstockLoad = headstockLoadByNodeId[node.id];
+    if (!headstockLoad || headstockLoad.status !== "ready") {
+      if (headstockLoad?.status === "loading") {
+        setErrorMessage("Headstock model is still loading.");
+        return;
+      }
+      setErrorMessage(
+        headstockLoad?.message ?? "Headstock model is not ready.",
+      );
+      return;
+    }
 
     const group = nodeRefs.current[node.id];
     if (!group) throw new Error("Neck object not ready");
@@ -803,6 +1491,10 @@ export default function ProjectPlayground({
       ...prev,
       [nodeId]: toNumericInputDraft(params),
     }));
+    setHeadstockTransformInputDraftByNodeId((prev) => ({
+      ...prev,
+      [nodeId]: toTransformInputDraft(neckParamsToHeadstockTransforms(params)),
+    }));
   }
 
   function setNeckNumberInput(
@@ -845,6 +1537,267 @@ export default function ProjectPlayground({
     }));
   }
 
+  function getNodeTransformsById(nodeId: string): NodeTransforms {
+    const node = nodesRef.current.find((n) => n.id === nodeId);
+    return normalizeNodeTransforms(node?.transforms);
+  }
+
+  function updateTransformsByInputKey(
+    transforms: NodeTransforms,
+    key: TransformInputKey,
+    value: number,
+  ): NodeTransforms {
+    if (key === "positionX") {
+      return {
+        ...transforms,
+        position: { ...transforms.position, x: value },
+      };
+    }
+    if (key === "positionY") {
+      return {
+        ...transforms,
+        position: { ...transforms.position, y: value },
+      };
+    }
+    if (key === "positionZ") {
+      return {
+        ...transforms,
+        position: { ...transforms.position, z: value },
+      };
+    }
+    if (key === "rotationX") {
+      return {
+        ...transforms,
+        rotation: { ...transforms.rotation, x: clampRotation(value) },
+      };
+    }
+    if (key === "rotationY") {
+      return {
+        ...transforms,
+        rotation: { ...transforms.rotation, y: clampRotation(value) },
+      };
+    }
+    if (key === "rotationZ") {
+      return {
+        ...transforms,
+        rotation: { ...transforms.rotation, z: clampRotation(value) },
+      };
+    }
+    return { ...transforms, scale: clampScale(value) };
+  }
+
+  function setTransformInputValue(
+    nodeId: string,
+    key: TransformInputKey,
+    raw: string,
+  ) {
+    setTransformInputDraftByNodeId((prev) => ({
+      ...prev,
+      [nodeId]: {
+        ...(prev[nodeId] ??
+          toTransformInputDraft(getNodeTransformsById(nodeId))),
+        [key]: raw,
+      },
+    }));
+  }
+
+  function commitTransformInput(nodeId: string, key: TransformInputKey) {
+    const raw = transformInputDraftByNodeId[nodeId]?.[key];
+    const current = getNodeTransformsById(nodeId);
+    const currentDraft = toTransformInputDraft(current);
+    if (raw == null || raw.trim() === "") {
+      setTransformInputValue(nodeId, key, currentDraft[key]);
+      return;
+    }
+    const parsed = Number(raw);
+    if (!Number.isFinite(parsed)) {
+      setTransformInputValue(nodeId, key, currentDraft[key]);
+      return;
+    }
+    const next = updateTransformsByInputKey(current, key, parsed);
+    scheduleTransformSave(nodeId, next);
+  }
+
+  function setHeadstockTransformInputValue(
+    nodeId: string,
+    key: TransformInputKey,
+    raw: string,
+  ) {
+    setHeadstockTransformInputDraftByNodeId((prev) => ({
+      ...prev,
+      [nodeId]: {
+        ...(prev[nodeId] ??
+          toTransformInputDraft(getHeadstockTransformsForNode(nodeId))),
+        [key]: raw,
+      },
+    }));
+  }
+
+  function commitHeadstockTransformInput(
+    nodeId: string,
+    key: TransformInputKey,
+  ) {
+    const raw = headstockTransformInputDraftByNodeId[nodeId]?.[key];
+    const current = getHeadstockTransformsForNode(nodeId);
+    const currentDraft = toTransformInputDraft(current);
+    if (raw == null || raw.trim() === "") {
+      setHeadstockTransformInputValue(nodeId, key, currentDraft[key]);
+      return;
+    }
+    const parsed = Number(raw);
+    if (!Number.isFinite(parsed)) {
+      setHeadstockTransformInputValue(nodeId, key, currentDraft[key]);
+      return;
+    }
+    const next = updateTransformsByInputKey(current, key, parsed);
+    applyHeadstockTransformsToDraft(nodeId, next);
+  }
+
+  function getActiveAxisUniformScale(obj: THREE.Object3D) {
+    const axis =
+      (transformRef.current as unknown as { axis?: string | null } | null)
+        ?.axis ?? "";
+    if (axis.includes("X")) return obj.scale.x;
+    if (axis.includes("Y")) return obj.scale.y;
+    if (axis.includes("Z")) return obj.scale.z;
+    return obj.scale.x;
+  }
+
+  function snapshotNodeTransformsFromObject(
+    obj: THREE.Object3D,
+    mode: TransformMode,
+  ): NodeTransforms {
+    const rotation = {
+      x: clampRotation(THREE.MathUtils.radToDeg(obj.rotation.x)),
+      y: clampRotation(THREE.MathUtils.radToDeg(obj.rotation.y)),
+      z: clampRotation(THREE.MathUtils.radToDeg(obj.rotation.z)),
+    };
+    obj.rotation.set(
+      THREE.MathUtils.degToRad(rotation.x),
+      THREE.MathUtils.degToRad(rotation.y),
+      THREE.MathUtils.degToRad(rotation.z),
+    );
+
+    const scale =
+      mode === "scale"
+        ? clampScale(getActiveAxisUniformScale(obj))
+        : clampScale(obj.scale.x);
+    obj.scale.setScalar(scale);
+
+    return {
+      position: {
+        x: obj.position.x,
+        y: obj.position.y,
+        z: obj.position.z,
+      },
+      rotation,
+      scale,
+    };
+  }
+
+  function renderTransformSection(
+    nodeId: string,
+    mode: TransformMode,
+    target: NeckTransformTarget = "neck",
+    className?: string,
+  ) {
+    const isHeadstockTarget = target === "headstock";
+    const draft = isHeadstockTarget
+      ? (headstockTransformInputDraftByNodeId[nodeId] ??
+        toTransformInputDraft(getHeadstockTransformsForNode(nodeId)))
+      : (transformInputDraftByNodeId[nodeId] ??
+        toTransformInputDraft(getNodeTransformsById(nodeId)));
+    const visibleFields = TRANSFORM_FIELDS.filter((field) =>
+      TRANSFORM_FIELDS_BY_MODE[mode].includes(field.key),
+    );
+    const isAxisMode = mode === "translate" || mode === "rotate";
+
+    return (
+      <section
+        className={cn(
+          "rounded border border-white/10 bg-black/10 p-2",
+          className,
+        )}
+      >
+        <div className="mb-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+          {mode === "translate"
+            ? "Position"
+            : mode === "rotate"
+              ? "Rotation"
+              : "Scale"}
+        </div>
+        <div
+          className={cn("text-xs", isAxisMode ? "flex gap-2" : "grid gap-2")}
+        >
+          {visibleFields.map((field) => (
+            <label
+              key={field.key}
+              className={cn(
+                isAxisMode ? "min-w-0 flex-1" : "",
+                field.key === "scale" ? "col-span-2" : "",
+              )}
+            >
+              {isAxisMode
+                ? field.key.endsWith("X")
+                  ? "X"
+                  : field.key.endsWith("Y")
+                    ? "Y"
+                    : "Z"
+                : field.label}
+              <input
+                className="mt-1 w-full rounded border border-white/20 bg-[#0f1616] px-2 py-1"
+                type="number"
+                min={field.min}
+                max={field.max}
+                step={field.step}
+                value={draft[field.key]}
+                onChange={(e) => {
+                  const raw = e.target.value;
+                  if (isHeadstockTarget) {
+                    setHeadstockTransformInputValue(nodeId, field.key, raw);
+                  } else {
+                    setTransformInputValue(nodeId, field.key, raw);
+                  }
+                  const parsed = Number(raw);
+                  if (!Number.isFinite(parsed)) return;
+                  const current = isHeadstockTarget
+                    ? getHeadstockTransformsForNode(nodeId)
+                    : getNodeTransformsById(nodeId);
+                  const next = updateTransformsByInputKey(
+                    current,
+                    field.key,
+                    parsed,
+                  );
+                  if (isHeadstockTarget) {
+                    applyHeadstockTransformsToDraft(nodeId, next);
+                  } else {
+                    scheduleTransformSave(nodeId, next);
+                  }
+                }}
+                onKeyDown={(e) => {
+                  if (e.key !== "Enter") return;
+                  e.preventDefault();
+                  if (isHeadstockTarget) {
+                    commitHeadstockTransformInput(nodeId, field.key);
+                  } else {
+                    commitTransformInput(nodeId, field.key);
+                  }
+                }}
+                onBlur={() => {
+                  if (isHeadstockTarget) {
+                    commitHeadstockTransformInput(nodeId, field.key);
+                  } else {
+                    commitTransformInput(nodeId, field.key);
+                  }
+                }}
+              />
+            </label>
+          ))}
+        </div>
+      </section>
+    );
+  }
+
   return (
     <div
       className={cn(
@@ -868,6 +1821,43 @@ export default function ProjectPlayground({
         )}
       >
         <div className="relative h-[58vh] min-h-[360px] w-full overflow-hidden rounded-lg border border-white/10 bg-[#0b1111]">
+          {selectedNode && selectedObject && !selectedNeckNode ? (
+            <div className="absolute left-3 top-3 z-10 w-[280px]">
+              {renderTransformSection(selectedNode.id, transformMode)}
+            </div>
+          ) : null}
+          <div className="absolute right-3 top-3 z-10 flex items-center gap-1 rounded border border-white/20 bg-black/40 p-1 text-xs">
+            {TRANSFORM_MODES.map((mode) => (
+              <button
+                key={mode}
+                type="button"
+                disabled={!selectedObject || !!deletingNodeId}
+                className={cn(
+                  "rounded px-2 py-1 capitalize transition",
+                  transformMode === mode
+                    ? "bg-emerald-500/30 text-emerald-200"
+                    : "text-muted-foreground hover:bg-white/10",
+                  (!selectedObject || !!deletingNodeId) &&
+                    "cursor-not-allowed opacity-50 hover:bg-transparent",
+                )}
+                onClick={() => setTransformMode(mode)}
+              >
+                {mode}
+              </button>
+            ))}
+            <button
+              type="button"
+              disabled={!selectedNodeId || !!deletingNodeId}
+              className={cn(
+                "ml-1 rounded border border-rose-400/60 px-2 py-1 text-rose-200 transition hover:bg-rose-500/20",
+                (!selectedNodeId || !!deletingNodeId) &&
+                  "cursor-not-allowed opacity-50 hover:bg-transparent",
+              )}
+              onClick={() => void deleteSelectedModel()}
+            >
+              {deletingNodeId ? "Deleting..." : "Delete"}
+            </button>
+          </div>
           <Canvas
             //shadows
             camera={{ position: [4.8, 3.2, 5.2], fov: 45 }}
@@ -893,9 +1883,16 @@ export default function ProjectPlayground({
             />
 
             {nodes.map((node) => {
-              const pos = node.transforms?.position ?? { x: 0, y: 0, z: 0 };
+              const transforms = normalizeNodeTransforms(node.transforms);
+              const pos = transforms.position;
+              const rot = transforms.rotation;
+              const scale = transforms.scale;
               const isNeck = node.asset?.part_type === "neck";
               const neckParams = getNeckParamsForNode(node);
+              const headstockRenderState = getHeadstockRenderState(neckParams);
+              const headstockUrl = headstockRenderState.url;
+              const headstockUnavailableError =
+                headstockRenderState.unavailableError;
 
               if (!isNeck && !node.asset?.modelUrl) return null;
               if (isNeck && !neckParams) return null;
@@ -906,18 +1903,76 @@ export default function ProjectPlayground({
                   ref={(g) => {
                     nodeRefs.current[node.id] = g;
                     if (node.id === selectedNodeId) {
-                      setSelectedObject(g);
+                      setSelectedObject(
+                        resolveSelectedObject(
+                          node.id,
+                          transformMode,
+                          neckTransformTarget,
+                        ),
+                      );
                     }
                   }}
                   position={[pos.x, pos.y, pos.z]}
+                  rotation={[
+                    THREE.MathUtils.degToRad(rot.x),
+                    THREE.MathUtils.degToRad(rot.y),
+                    THREE.MathUtils.degToRad(rot.z),
+                  ]}
+                  scale={[scale, scale, scale]}
                   onPointerDown={(e) => {
                     e.stopPropagation();
                     setSelectedNodeId(node.id);
+                    if (isNeck) {
+                      setNeckTransformTarget("neck");
+                    }
                   }}
                 >
                   <Suspense fallback={null}>
                     {isNeck && neckParams ? (
-                      <ProceduralNeckMesh params={neckParams} />
+                      <ProceduralNeckMesh
+                        params={neckParams}
+                        headstockUrl={headstockUrl}
+                        headstockUnavailableError={headstockUnavailableError}
+                        onHeadstockStateChange={(state) =>
+                          setHeadstockLoadState(node.id, state)
+                        }
+                        onHeadstockTranslateGroupChange={(group) => {
+                          headstockTranslateRefs.current[node.id] = group;
+                          if (
+                            node.id === selectedNodeId &&
+                            neckTransformTarget === "headstock" &&
+                            transformMode === "translate"
+                          ) {
+                            setSelectedObject(
+                              resolveSelectedObject(
+                                node.id,
+                                transformMode,
+                                neckTransformTarget,
+                              ),
+                            );
+                          }
+                        }}
+                        onHeadstockRotateScaleGroupChange={(group) => {
+                          headstockRotateScaleRefs.current[node.id] = group;
+                          if (
+                            node.id === selectedNodeId &&
+                            neckTransformTarget === "headstock" &&
+                            transformMode !== "translate"
+                          ) {
+                            setSelectedObject(
+                              resolveSelectedObject(
+                                node.id,
+                                transformMode,
+                                neckTransformTarget,
+                              ),
+                            );
+                          }
+                        }}
+                        onHeadstockPointerDown={() => {
+                          setSelectedNodeId(node.id);
+                          setNeckTransformTarget("headstock");
+                        }}
+                      />
                     ) : !isNeck ? (
                       <ModelAssetView
                         url={node.asset!.modelUrl!}
@@ -932,9 +1987,15 @@ export default function ProjectPlayground({
 
             {selectedObject ? (
               <TransformControls
-                key={selectedNodeId ?? undefined}
+                ref={transformRef}
+                key={
+                  selectedNodeId
+                    ? `${selectedNodeId}:${neckTransformTarget}`
+                    : undefined
+                }
                 object={selectedObject}
-                mode="translate"
+                mode={transformMode}
+                space="local"
                 onMouseDown={() => {
                   setOrbitEnabled(false);
                   recenterToSelectedNode(false);
@@ -946,13 +2007,30 @@ export default function ProjectPlayground({
                 onObjectChange={() => {
                   const nodeId = selectedNodeId;
                   if (!nodeId) return;
+                  const node = nodesRef.current.find((n) => n.id === nodeId);
+                  if (!node) return;
+                  const isHeadstockTarget =
+                    node.asset?.part_type === "neck" &&
+                    neckTransformTarget === "headstock";
+                  if (isHeadstockTarget) {
+                    const nextHeadstockTransforms =
+                      snapshotHeadstockTransformsFromObjects(
+                        nodeId,
+                        transformMode,
+                      );
+                    applyHeadstockTransformsToDraft(
+                      nodeId,
+                      nextHeadstockTransforms,
+                    );
+                    return;
+                  }
                   const obj = nodeRefs.current[nodeId];
                   if (!obj) return;
-                  scheduleSave(nodeId, {
-                    x: obj.position.x,
-                    y: obj.position.y,
-                    z: obj.position.z,
-                  });
+                  const nextTransforms = snapshotNodeTransformsFromObject(
+                    obj,
+                    transformMode,
+                  );
+                  scheduleTransformSave(nodeId, nextTransforms);
                 }}
               />
             ) : null}
@@ -983,204 +2061,270 @@ export default function ProjectPlayground({
           <aside className="h-[58vh] min-h-[360px] overflow-auto rounded-lg border border-white/10 bg-[#121a1a] p-3">
             <div className="mb-3 text-sm font-medium">Neck Parameters</div>
 
-            <div className="grid grid-cols-2 gap-2 text-xs">
-              <label className="col-span-2">
-                Headstock Asset
-                <select
-                  className="mt-1 w-full rounded border border-white/20 bg-[#0f1616] px-2 py-1"
-                  value={
-                    neckDraftByNodeId[selectedNeckNode.id]?.headstockAssetId ??
-                    ""
-                  }
-                  onChange={(e) =>
-                    updateNeckDraft(selectedNeckNode.id, {
-                      headstockAssetId: e.target.value || null,
-                    })
-                  }
-                >
-                  <option value="">Select headstock</option>
-                  {headstockAssets.map((a) => (
-                    <option key={a.id} value={a.id}>
-                      {a.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <label>
-                Profile Type
-                <select
-                  className="mt-1 w-full rounded border border-white/20 bg-[#0f1616] px-2 py-1"
-                  value={
-                    neckDraftByNodeId[selectedNeckNode.id]?.profileType ?? "C"
-                  }
-                  onChange={(e) =>
-                    updateNeckDraft(selectedNeckNode.id, {
-                      profileType: e.target.value as NeckParams["profileType"],
-                    })
-                  }
-                >
-                  <option value="C">C</option>
-                  <option value="U">U</option>
-                  <option value="V">V</option>
-                  <option value="D">D</option>
-                </select>
-              </label>
-
-              <label>
-                Fingerboard Radius Mode
-                <select
-                  className="mt-1 w-full rounded border border-white/20 bg-[#0f1616] px-2 py-1"
-                  value={
-                    neckDraftByNodeId[selectedNeckNode.id]
-                      ?.fingerboardRadiusMode ?? "single"
-                  }
-                  onChange={(e) => {
-                    const mode = e.target
-                      .value as NeckParams["fingerboardRadiusMode"];
-                    const current =
-                      neckDraftByNodeId[selectedNeckNode.id] ??
-                      DEFAULT_NECK_PARAMS;
-                    const next = normalizeNeckParams({
-                      ...current,
-                      fingerboardRadiusMode: mode,
-                    });
-                    setNeckDraftByNodeId((prev) => ({
-                      ...prev,
-                      [selectedNeckNode.id]: next,
-                    }));
-                    setNeckInputDraftByNodeId((prev) => ({
-                      ...prev,
-                      [selectedNeckNode.id]: toNumericInputDraft(next),
-                    }));
-                  }}
-                >
-                  <option value="single">single</option>
-                  <option value="compound">compound</option>
-                </select>
-              </label>
-
+            <div className="space-y-3 text-xs">
               {(() => {
                 const nodeId = selectedNeckNode.id;
                 const currentParams =
                   neckDraftByNodeId[nodeId] ?? DEFAULT_NECK_PARAMS;
                 const isCompound =
                   currentParams.fingerboardRadiusMode === "compound";
+                const currentHeadstockRenderState =
+                  getHeadstockRenderState(currentParams);
+                const canTargetHeadstock =
+                  !!currentParams.headstockAssetId &&
+                  !!currentHeadstockRenderState.url &&
+                  !currentHeadstockRenderState.unavailableError;
+                const currentHeadstockLoad = headstockLoadByNodeId[nodeId] ?? {
+                  status: "idle",
+                  message: null,
+                };
 
-                return (
-                  <>
-                    <label>
-                      {NUMERIC_NECK_META.fingerboardRadiusStartIn.label}
+                const renderNumberInput = (key: NumericNeckKey) => {
+                  const meta = NUMERIC_NECK_META[key];
+                  const value =
+                    neckInputDraftByNodeId[nodeId]?.[key] ??
+                    String(currentParams[key] as number);
+
+                  return (
+                    <label key={key}>
+                      {meta.label}
                       <input
                         className="mt-1 w-full rounded border border-white/20 bg-[#0f1616] px-2 py-1"
                         type="number"
-                        min={NUMERIC_NECK_META.fingerboardRadiusStartIn.min}
-                        max={NUMERIC_NECK_META.fingerboardRadiusStartIn.max}
-                        step={NUMERIC_NECK_META.fingerboardRadiusStartIn.step}
-                        value={
-                          neckInputDraftByNodeId[nodeId]
-                            ?.fingerboardRadiusStartIn ??
-                          String(currentParams.fingerboardRadiusStartIn)
-                        }
+                        min={meta.min}
+                        max={meta.max}
+                        step={meta.step}
+                        value={value}
                         onChange={(e) =>
-                          setNeckNumberInput(
-                            nodeId,
-                            "fingerboardRadiusStartIn",
-                            e.target.value,
-                          )
+                          setNeckNumberInput(nodeId, key, e.target.value)
                         }
                         onKeyDown={(e) => {
                           if (e.key === "Enter") {
                             e.preventDefault();
-                            commitNeckNumberInput(
-                              nodeId,
-                              "fingerboardRadiusStartIn",
-                            );
+                            commitNeckNumberInput(nodeId, key);
                           }
                         }}
-                        onBlur={() =>
-                          commitNeckNumberInput(
-                            nodeId,
-                            "fingerboardRadiusStartIn",
-                          )
-                        }
+                        onBlur={() => commitNeckNumberInput(nodeId, key)}
                       />
                     </label>
+                  );
+                };
 
-                    {isCompound ? (
-                      <label>
-                        {NUMERIC_NECK_META.fingerboardRadiusEndIn.label}
-                        <input
-                          className="mt-1 w-full rounded border border-white/20 bg-[#0f1616] px-2 py-1"
-                          type="number"
-                          min={NUMERIC_NECK_META.fingerboardRadiusEndIn.min}
-                          max={NUMERIC_NECK_META.fingerboardRadiusEndIn.max}
-                          step={NUMERIC_NECK_META.fingerboardRadiusEndIn.step}
-                          value={
-                            neckInputDraftByNodeId[nodeId]
-                              ?.fingerboardRadiusEndIn ??
-                            String(currentParams.fingerboardRadiusEndIn)
-                          }
-                          onChange={(e) =>
-                            setNeckNumberInput(
-                              nodeId,
-                              "fingerboardRadiusEndIn",
-                              e.target.value,
-                            )
-                          }
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") {
-                              e.preventDefault();
-                              commitNeckNumberInput(
-                                nodeId,
-                                "fingerboardRadiusEndIn",
-                              );
-                            }
-                          }}
-                          onBlur={() =>
-                            commitNeckNumberInput(
-                              nodeId,
-                              "fingerboardRadiusEndIn",
-                            )
-                          }
-                        />
-                      </label>
-                    ) : (
-                      <div className="text-[11px] text-muted-foreground self-end pb-1">
-                        End radius is locked to start radius in single mode.
+                return (
+                  <>
+                    <section className="rounded border border-white/10 bg-black/10 p-2">
+                      <div className="mb-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                        Transform Target
                       </div>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          className={cn(
+                            "rounded border px-2 py-1 text-[11px] transition",
+                            neckTransformTarget === "neck"
+                              ? "border-emerald-400/70 bg-emerald-500/20 text-emerald-200"
+                              : "border-white/20 text-muted-foreground hover:bg-white/10",
+                          )}
+                          onClick={() => setNeckTransformTarget("neck")}
+                        >
+                          Neck
+                        </button>
+                        <button
+                          type="button"
+                          disabled={!canTargetHeadstock}
+                          className={cn(
+                            "rounded border px-2 py-1 text-[11px] transition",
+                            neckTransformTarget === "headstock"
+                              ? "border-emerald-400/70 bg-emerald-500/20 text-emerald-200"
+                              : "border-white/20 text-muted-foreground hover:bg-white/10",
+                            !canTargetHeadstock &&
+                              "cursor-not-allowed opacity-50 hover:bg-transparent",
+                          )}
+                          onClick={() => setNeckTransformTarget("headstock")}
+                        >
+                          Headstock
+                        </button>
+                      </div>
+                    </section>
+
+                    {renderTransformSection(
+                      nodeId,
+                      transformMode,
+                      neckTransformTarget,
                     )}
-
-                    {GENERAL_NUMERIC_NECK_KEYS.map((key) => {
-                      const meta = NUMERIC_NECK_META[key];
-                      const value =
-                        neckInputDraftByNodeId[nodeId]?.[key] ??
-                        String(currentParams[key] as number);
-
-                      return (
-                        <label key={key}>
-                          {meta.label}
-                          <input
+                    <section className="rounded border border-white/10 bg-black/10 p-2">
+                      <div className="mb-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                        General
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <label className="col-span-2">
+                          Headstock Asset
+                          <select
                             className="mt-1 w-full rounded border border-white/20 bg-[#0f1616] px-2 py-1"
-                            type="number"
-                            min={meta.min}
-                            max={meta.max}
-                            step={meta.step}
-                            value={value}
-                            onChange={(e) =>
-                              setNeckNumberInput(nodeId, key, e.target.value)
+                            value={
+                              neckDraftByNodeId[selectedNeckNode.id]
+                                ?.headstockAssetId ?? ""
                             }
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") {
-                                e.preventDefault();
-                                commitNeckNumberInput(nodeId, key);
+                            onChange={(e) => {
+                              const nextHeadstockAssetId =
+                                e.target.value || null;
+                              updateNeckDraft(selectedNeckNode.id, {
+                                headstockAssetId: nextHeadstockAssetId,
+                              });
+                              setHeadstockTransformInputDraftByNodeId(
+                                (prev) => {
+                                  const nextParams = normalizeNeckParams({
+                                    ...currentParams,
+                                    headstockAssetId: nextHeadstockAssetId,
+                                  });
+                                  return {
+                                    ...prev,
+                                    [selectedNeckNode.id]:
+                                      toTransformInputDraft(
+                                        neckParamsToHeadstockTransforms(
+                                          nextParams,
+                                        ),
+                                      ),
+                                  };
+                                },
+                              );
+                              if (nextHeadstockAssetId) {
+                                setNeckTransformTarget("headstock");
+                              } else {
+                                setNeckTransformTarget("neck");
                               }
                             }}
-                            onBlur={() => commitNeckNumberInput(nodeId, key)}
-                          />
+                          >
+                            <option value="">Select headstock</option>
+                            {headstockAssets.map((a) => (
+                              <option key={a.id} value={a.id}>
+                                {a.name}
+                              </option>
+                            ))}
+                          </select>
+                          {currentParams.headstockAssetId ? (
+                            <div
+                              className={cn(
+                                "mt-1 text-[11px]",
+                                currentHeadstockLoad.status === "error"
+                                  ? "text-rose-300"
+                                  : "text-muted-foreground",
+                              )}
+                            >
+                              {currentHeadstockLoad.status === "loading"
+                                ? "Headstock model loading..."
+                                : currentHeadstockLoad.status === "ready"
+                                  ? "Headstock model ready."
+                                  : currentHeadstockLoad.status === "error"
+                                    ? (currentHeadstockLoad.message ??
+                                      "Headstock model failed to load.")
+                                    : "Waiting for headstock model."}
+                            </div>
+                          ) : null}
                         </label>
-                      );
-                    })}
+                        {GENERAL_DIMENSION_NECK_KEYS.map((key) =>
+                          renderNumberInput(key),
+                        )}
+                      </div>
+                    </section>
+
+                    <section className="rounded border border-white/10 bg-black/10 p-2">
+                      <div className="mb-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                        Profile
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <label>
+                          Profile Type
+                          <select
+                            className="mt-1 w-full rounded border border-white/20 bg-[#0f1616] px-2 py-1"
+                            value={
+                              neckDraftByNodeId[selectedNeckNode.id]
+                                ?.profileType ?? "C"
+                            }
+                            onChange={(e) =>
+                              updateNeckDraft(selectedNeckNode.id, {
+                                profileType: e.target
+                                  .value as NeckParams["profileType"],
+                              })
+                            }
+                          >
+                            <option value="C">C</option>
+                            <option value="U">U</option>
+                            <option value="V">V</option>
+                            <option value="D">D</option>
+                          </select>
+                        </label>
+                        {PROFILE_NUMERIC_NECK_KEYS.map((key) =>
+                          renderNumberInput(key),
+                        )}
+                      </div>
+                    </section>
+
+                    <section className="rounded border border-white/10 bg-black/10 p-2">
+                      <div className="mb-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                        Fingerboard Radius
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <label className="col-span-2">
+                          Fingerboard Radius Mode
+                          <select
+                            className="mt-1 w-full rounded border border-white/20 bg-[#0f1616] px-2 py-1"
+                            value={currentParams.fingerboardRadiusMode}
+                            onChange={(e) => {
+                              const mode = e.target
+                                .value as NeckParams["fingerboardRadiusMode"];
+                              const next = normalizeNeckParams({
+                                ...currentParams,
+                                fingerboardRadiusMode: mode,
+                              });
+                              setNeckDraftByNodeId((prev) => ({
+                                ...prev,
+                                [selectedNeckNode.id]: next,
+                              }));
+                              setNeckInputDraftByNodeId((prev) => ({
+                                ...prev,
+                                [selectedNeckNode.id]:
+                                  toNumericInputDraft(next),
+                              }));
+                            }}
+                          >
+                            <option value="single">single</option>
+                            <option value="compound">compound</option>
+                          </select>
+                        </label>
+
+                        {renderNumberInput("fingerboardRadiusStartIn")}
+                        {isCompound ? (
+                          renderNumberInput("fingerboardRadiusEndIn")
+                        ) : (
+                          <div className="self-end pb-1 text-[11px] text-muted-foreground">
+                            End radius is locked to start radius in single mode.
+                          </div>
+                        )}
+                      </div>
+                    </section>
+
+                    <section className="rounded border border-white/10 bg-black/10 p-2">
+                      <div className="mb-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                        Heel
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        {HEEL_NUMERIC_NECK_KEYS.map((key) =>
+                          renderNumberInput(key),
+                        )}
+                      </div>
+                    </section>
+
+                    <section className="rounded border border-white/10 bg-black/10 p-2">
+                      <div className="mb-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                        Alignment
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        {ALIGNMENT_NUMERIC_NECK_KEYS.map((key) =>
+                          renderNumberInput(key),
+                        )}
+                      </div>
+                    </section>
                   </>
                 );
               })()}
@@ -1191,7 +2335,8 @@ export default function ProjectPlayground({
                 className="rounded border border-emerald-400 px-3 py-1 text-xs"
                 disabled={
                   savingNeckNodeId === selectedNeckNode.id ||
-                  !neckDraftByNodeId[selectedNeckNode.id]?.headstockAssetId
+                  !neckDraftByNodeId[selectedNeckNode.id]?.headstockAssetId ||
+                  headstockLoadByNodeId[selectedNeckNode.id]?.status !== "ready"
                 }
                 onClick={() => void applyAndSaveNeck(selectedNeckNode)}
               >

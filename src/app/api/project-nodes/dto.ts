@@ -1,5 +1,11 @@
 import { z } from "zod";
 
+const PositionSchema = z.object({
+  x: z.number(),
+  y: z.number(),
+  z: z.number(),
+});
+
 export const GetProjectNodesQuerySchema = z.object({
   projectId: z.uuid(),
 });
@@ -10,13 +16,26 @@ export const CreateProjectNodeBodySchema = z.object({
   parentId: z.uuid().nullable().optional(),
 });
 
-export const PatchProjectNodeBodySchema = z.object({
+export const PatchProjectNodeBodySchema = z
+  .object({
+    nodeId: z.uuid(),
+    position: PositionSchema.optional(),
+    rotation: PositionSchema.optional(),
+    scale: z.number().min(0.01).max(10).optional(),
+  })
+  .refine(
+    (value) =>
+      value.position !== undefined ||
+      value.rotation !== undefined ||
+      value.scale !== undefined,
+    {
+      message: "At least one transform field is required.",
+      path: ["position"],
+    },
+  );
+
+export const DeleteProjectNodeBodySchema = z.object({
   nodeId: z.uuid(),
-  position: z.object({
-    x: z.number(),
-    y: z.number(),
-    z: z.number(),
-  }),
 });
 
 export type GetProjectNodesQueryDto = z.infer<
@@ -27,4 +46,7 @@ export type CreateProjectNodeBodyDto = z.infer<
 >;
 export type PatchProjectNodeBodyDto = z.infer<
   typeof PatchProjectNodeBodySchema
+>;
+export type DeleteProjectNodeBodyDto = z.infer<
+  typeof DeleteProjectNodeBodySchema
 >;
