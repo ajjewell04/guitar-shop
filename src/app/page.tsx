@@ -3,7 +3,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import React from "react";
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import Image from "next/image";
@@ -35,10 +34,7 @@ type ProjectNodesPayload = {
   error?: string;
 };
 
-export default function Home({
-  className: _className,
-  ..._props
-}: React.ComponentPropsWithoutRef<"div">) {
+export default function Home() {
   const [projects, setProjects] = useState<ProjectRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [deletingProjectId, setDeletingProjectId] = useState<string | null>(

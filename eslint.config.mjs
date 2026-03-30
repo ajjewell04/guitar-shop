@@ -18,6 +18,7 @@ export default defineConfig([
     ".gitignore",
     ".prettierignore",
     ".stylelintignore",
+    "next-env.d.ts",
     "stylelintrc.json",
     "package-lock.json",
     "README.md",
