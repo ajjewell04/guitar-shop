@@ -3,7 +3,14 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState, useCallback } from "react";
+import {
+  Suspense,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useCallback,
+} from "react";
 import { useSearchParams } from "next/navigation";
 import Image from "next/image";
 import {
@@ -34,7 +41,7 @@ type ProjectNodesPayload = {
   error?: string;
 };
 
-export default function Home() {
+function HomeContent() {
   const [projects, setProjects] = useState<ProjectRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [deletingProjectId, setDeletingProjectId] = useState<string | null>(
@@ -224,5 +231,19 @@ export default function Home() {
         );
       })}
     </div>
+  );
+}
+
+export default function Home() {
+  return (
+    <Suspense
+      fallback={
+        <div className="m-4 text-sm text-muted-foreground">
+          Loading projects...
+        </div>
+      }
+    >
+      <HomeContent />
+    </Suspense>
   );
 }

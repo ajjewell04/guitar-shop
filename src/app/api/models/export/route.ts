@@ -38,7 +38,9 @@ export async function GET(req: Request) {
   if (error || !project)
     return jsonError(error?.message ?? "Project not found", 404);
 
-  const file = unwrapRelation(project.root_node?.asset?.asset_file);
+  const rootNode = unwrapRelation(project.root_node);
+  const asset = unwrapRelation(rootNode?.asset);
+  const file = unwrapRelation(asset?.asset_file);
   if (!file?.object_key) return jsonError("No model file found", 404);
 
   const filename = file.object_key.split("/").pop() ?? "model.glb";

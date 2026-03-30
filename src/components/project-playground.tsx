@@ -884,10 +884,14 @@ export default function ProjectPlayground({
   const shouldIgnoreSceneSelection = useCallback(() => {
     const controls = transformRef.current;
     if (!controls) return false;
+    const controlState = controls as unknown as {
+      dragging?: boolean;
+      axis?: string | null;
+    };
     return (
       transformPointerDownRef.current ||
-      controls.dragging ||
-      controls.axis !== null
+      controlState.dragging === true ||
+      (controlState.axis ?? null) !== null
     );
   }, []);
 

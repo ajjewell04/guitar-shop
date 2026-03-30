@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import WorkView from "../components/workview";
@@ -39,9 +39,11 @@ export default function RootLayout({
               onNewAsset={() => setIsNewAssetOpen(true)}
             />
           </div>
-          <WorkView onNewProject={() => setIsNewProjectOpen(true)}>
-            {children}
-          </WorkView>
+          <Suspense fallback={<div className="flex-1" />}>
+            <WorkView onNewProject={() => setIsNewProjectOpen(true)}>
+              {children}
+            </WorkView>
+          </Suspense>
         </div>
         {isNewProjectOpen && (
           <div
