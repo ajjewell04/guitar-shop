@@ -11,8 +11,10 @@ import {
   type SortKey,
 } from "@/components/ui/filters";
 
-type WorkviewProps = { children: React.ReactNode } & {
+type WorkviewProps = {
+  children: React.ReactNode;
   onNewProject?: () => void;
+  initialUserEmail?: string | null;
 };
 
 type NavConfig = {
@@ -41,8 +43,14 @@ function getNavConfig(pathname: string): NavConfig {
   return { title: "Workview", showSearch: false, showFilters: false };
 }
 
-export default function WorkView({ children, onNewProject }: WorkviewProps) {
-  const [userEmail, setUserEmail] = useState<string | null>(null);
+export default function WorkView({
+  children,
+  onNewProject,
+  initialUserEmail,
+}: WorkviewProps) {
+  const [userEmail, setUserEmail] = useState<string | null>(
+    initialUserEmail ?? null,
+  );
   const pathname = usePathname();
   const navConfig = getNavConfig(pathname);
   const router = useRouter();
@@ -70,20 +78,12 @@ export default function WorkView({ children, onNewProject }: WorkviewProps) {
 
   useEffect(() => {
     const supabase = createClient();
-
-    supabase.auth.getUser().then(({ data }) => {
-      setUserEmail(data.user?.email ?? null);
-    });
-
     const { data: authListener } = supabase.auth.onAuthStateChange(
       (_event, session) => {
         setUserEmail(session?.user.email ?? null);
       },
     );
-
-    return () => {
-      authListener.subscription.unsubscribe();
-    };
+    return () => authListener.subscription.unsubscribe();
   }, []);
 
   useEffect(() => {

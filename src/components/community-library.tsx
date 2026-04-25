@@ -18,36 +18,24 @@ type ApprovedAssetRow = {
   id: string;
   name: string;
   owner_id: string;
-  part_type:
-    | "body"
-    | "neck"
-    | "headstock"
-    | "bridge"
-    | "tuning_machine"
-    | "pickup"
-    | "pickguard"
-    | "knob"
-    | "switch"
-    | "strap_button"
-    | "output_jack"
-    | "miscellaneous"
-    | null;
+  part_type: string | null;
   upload_date: string;
-  upload_status: "pending" | "approved" | "rejected" | null;
-  previewUrl?: string;
-  modelUrl?: string | null;
+  upload_status: string | null;
+  previewUrl: string | null;
+  modelUrl: string | null;
 };
 
 type CommunityLibraryViewProps = React.ComponentPropsWithoutRef<"div"> & {
   ownerId?: string;
+  initialAssets: ApprovedAssetRow[];
 };
 
 export default function CommunityLibraryView({
   className,
   ownerId,
+  initialAssets,
 }: CommunityLibraryViewProps) {
-  const [assets, setAssets] = useState<ApprovedAssetRow[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [assets, setAssets] = useState<ApprovedAssetRow[]>(initialAssets);
   const [error, setError] = useState<string | null>(null);
   const [copyingAssetId, setCopyingAssetId] = useState<string | null>(null);
   const [deletingAssetId, setDeletingAssetId] = useState<string | null>(null);
@@ -166,32 +154,7 @@ export default function CommunityLibraryView({
   }
 
   useEffect(() => {
-    const loadUploadedAssets = async () => {
-      const params = new URLSearchParams();
-      if (ownerId) params.set("ownerId", ownerId);
-
-      const res = await fetch(`/api/assets?${params.toString()}`, {
-        cache: "no-store",
-      });
-      const payload = await res.json().catch(() => ({}));
-
-      if (!res.ok) {
-        setError(payload?.error ?? "Failed to load assets");
-        setAssets([]);
-        setLoading(false);
-        return;
-      }
-
-      setError(null);
-      setAssets((payload.assets ?? []) as ApprovedAssetRow[]);
-      setLoading(false);
-    };
-
-    loadUploadedAssets();
-  }, [ownerId]);
-
-  useEffect(() => {
-    if (loading || assets.length === 0) return;
+    if (assets.length === 0) return;
 
     const missing = assets.filter(
       (asset) =>
@@ -221,7 +184,7 @@ export default function CommunityLibraryView({
     return () => {
       cancelled = true;
     };
-  }, [assets, loading]);
+  }, [assets]);
 
   const searchKey = searchParams.toString();
 
@@ -263,12 +226,9 @@ export default function CommunityLibraryView({
         className,
       )}
     >
-      {loading && <div>Loading assets...</div>}
       {error && <div className="text-red-500">{error}</div>}
-      {!loading && !error && assets.length === 0 && (
-        <div>No approved assets found.</div>
-      )}
-      {!loading && !error && assets.length > 0 && (
+      {!error && assets.length === 0 && <div>No approved assets found.</div>}
+      {assets.length > 0 && (
         <div className="flex-1 min-h-0 overflow-y-auto p-2">
           <div className="grid grid-cols-4 gap-4">
             {visibleAssets.map((asset) => (

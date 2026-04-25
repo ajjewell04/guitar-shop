@@ -18,14 +18,19 @@ type Asset = {
 type SidebarProps = {
   onNewProject?: () => void;
   onNewAsset?: () => void;
+  initialUserId?: string | null;
 };
 
-export default function Sidebar({ onNewProject, onNewAsset }: SidebarProps) {
+export default function Sidebar({
+  onNewProject,
+  onNewAsset,
+  initialUserId,
+}: SidebarProps) {
   const [projects, setProjects] = useState<Project[]>([]);
   const [assets, setAssets] = useState<Asset[]>([]);
   const [projectError, setProjectError] = useState<string | null>(null);
   const [assetError, setAssetError] = useState<string | null>(null);
-  const [userId, setUserId] = useState<string | null>(null);
+  const userId = initialUserId ?? null;
 
   useEffect(() => {
     let isActive = true;
@@ -66,10 +71,6 @@ export default function Sidebar({ onNewProject, onNewAsset }: SidebarProps) {
       setAssetError(null);
       setAssets(data ?? []);
     };
-
-    supabase.auth.getUser().then(({ data }) => {
-      if (isActive) setUserId(data.user?.id ?? null);
-    });
 
     loadProjects();
     loadAssets();
