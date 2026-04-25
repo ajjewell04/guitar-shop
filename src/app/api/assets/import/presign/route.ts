@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { supabaseServer } from "@/lib/supabase";
-import { userS3Folder } from "@/lib/s3";
+import { supabaseServer } from "@/lib/supabase/server";
+import { userS3Folder } from "@/lib/s3/folder";
 import { requireUser } from "@/app/api/_shared/auth";
 import { jsonError } from "@/app/api/_shared/http";
 import { signPutObjectUrl } from "@/app/api/_shared/s3";

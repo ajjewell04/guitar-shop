@@ -1,5 +1,5 @@
 import { LogoutButton } from "@/components/auth/logout-button";
-import { supabaseServer } from "@/lib/supabase";
+import { supabaseServer } from "@/lib/supabase/server";
 
 export default async function ProtectedPage() {
   const _supabase = await supabaseServer();

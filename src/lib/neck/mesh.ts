@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { INCH_TO_MM, type NeckParams } from "@/lib/neck-params";
+import { INCH_TO_MM, type NeckParams } from "@/lib/neck/params";
 
 const FRET_UNDERSIDE_OFFSET_MM = 0.02;
 const FLAT_HEEL_RAMP_RATIO = 0.35;

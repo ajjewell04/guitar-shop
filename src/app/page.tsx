@@ -1,7 +1,7 @@
 import { Suspense } from "react";
-import { supabaseServer } from "@/lib/supabase";
+import { supabaseServer } from "@/lib/supabase/server";
 import { mapProjectListRow } from "@/app/api/projects/mappers";
-import { ProjectList } from "@/components/project-list";
+import { ProjectList } from "@/components/projects/project-list";
 
 export default async function Home() {
   const supabase = await supabaseServer();

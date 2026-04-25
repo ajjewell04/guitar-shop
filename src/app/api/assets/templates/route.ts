@@ -3,8 +3,8 @@ import { requireUser } from "@/app/api/_shared/auth";
 import { jsonError } from "@/app/api/_shared/http";
 import { signGetFileUrl } from "@/app/api/_shared/s3";
 import { TEMPLATE_S3_KEYS } from "@/app/api/assets/service";
-import { S3_BUCKET } from "@/lib/s3";
-import { supabaseServer } from "@/lib/supabase";
+import { S3_BUCKET } from "@/lib/s3/client";
+import { supabaseServer } from "@/lib/supabase/server";
 
 type TemplateKey = keyof typeof TEMPLATE_S3_KEYS;
 

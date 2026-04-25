@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { useEffect, useState } from "react";
-import { createClient } from "@/lib/client";
+import { supabaseBrowser } from "@/lib/supabase/browser";
 
 type Project = {
   id: string;
@@ -34,7 +34,7 @@ export default function Sidebar({
 
   useEffect(() => {
     let isActive = true;
-    const supabase = createClient();
+    const supabase = supabaseBrowser();
 
     const loadProjects = async () => {
       const { data, error } = await supabase

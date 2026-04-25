@@ -14,7 +14,7 @@ import {
   HEEL_NUMERIC_NECK_KEYS,
   ALIGNMENT_NUMERIC_NECK_KEYS,
 } from "@/stores/project-playground/constants";
-import { DEFAULT_NECK_PARAMS, normalizeNeckParams } from "@/lib/neck-params";
+import { DEFAULT_NECK_PARAMS, normalizeNeckParams } from "@/lib/neck/params";
 import type { NumericNeckKey } from "@/stores/project-playground/types";
 import { TransformSection } from "./transform-section";
 

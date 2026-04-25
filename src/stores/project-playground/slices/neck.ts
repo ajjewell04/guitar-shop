@@ -5,10 +5,10 @@ import {
   DEFAULT_NECK_PARAMS,
   normalizeNeckParams,
   type NeckParams,
-} from "@/lib/neck-params";
+} from "@/lib/neck/params";
 import { GLTFExporter } from "three/examples/jsm/exporters/GLTFExporter.js";
 import type * as THREE from "three";
-import { renderModelPreview } from "@/lib/model-preview";
+import { renderModelPreview } from "@/lib/preview/model";
 import { NUMERIC_NECK_META } from "../constants";
 import {
   toNumericInputDraft,

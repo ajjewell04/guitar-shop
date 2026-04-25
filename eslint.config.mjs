@@ -1,6 +1,5 @@
 import js from "@eslint/js";
 import json from "@eslint/json";
-import css from "@eslint/css";
 import globals from "globals";
 import tseslint from "typescript-eslint";
 import { FlatCompat } from "@eslint/eslintrc";
@@ -77,12 +76,6 @@ export default defineConfig([
     plugins: { json },
     language: "json/jsonc",
     extends: ["json/recommended"],
-  },
-  {
-    files: ["**/*.css"],
-    plugins: { css },
-    language: "css/css",
-    extends: ["css/recommended"],
   },
   configPrettier,
   {

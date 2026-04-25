@@ -4,7 +4,7 @@ import {
   PutObjectCommand,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import { s3Client, S3_BUCKET } from "@/lib/s3";
+import { s3Client, S3_BUCKET } from "@/lib/s3/client";
 
 export type S3FileRef = {
   bucket?: string | null;

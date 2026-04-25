@@ -1,10 +1,10 @@
 "use client";
 
 import { Suspense, useState } from "react";
-import Sidebar from "@/components/sidebar";
-import WorkView from "@/components/workview";
-import { NewProjectForm } from "@/components/new-project-form";
-import { NewAssetForm } from "@/components/new-asset-form";
+import Sidebar from "@/components/layout/sidebar";
+import WorkView from "@/components/layout/workview";
+import { NewProjectForm } from "@/components/projects/new-project-form";
+import { NewAssetForm } from "@/components/assets/new-asset-form";
 
 type AppShellProps = {
   children: React.ReactNode;

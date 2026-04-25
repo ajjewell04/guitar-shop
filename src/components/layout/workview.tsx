@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { createClient } from "@/lib/client";
+import { supabaseBrowser } from "@/lib/supabase/browser";
 import { Button } from "@/components/ui/button";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
@@ -77,7 +77,7 @@ export default function WorkView({
   }
 
   useEffect(() => {
-    const supabase = createClient();
+    const supabase = supabaseBrowser();
     const { data: authListener } = supabase.auth.onAuthStateChange(
       (_event, session) => {
         setUserEmail(session?.user.email ?? null);

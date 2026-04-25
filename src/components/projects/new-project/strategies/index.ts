@@ -1,4 +1,4 @@
-import type { ProjectMode } from "@/components/new-project/constants";
+import type { ProjectMode } from "@/components/projects/new-project/constants";
 import type { ProjectCreationStrategy } from "../utils";
 import { blankStrategy } from "./blank";
 import { templateStrategy } from "./template";

@@ -1,6 +1,6 @@
 "use client";
 
-import type { PreviewNodeInput } from "@/lib/project-preview";
+import type { PreviewNodeInput } from "@/lib/preview/project";
 import { buildWorldTransformsByNodeId } from "@/lib/node-hierarchy";
 
 type NodeLike = {
@@ -36,7 +36,7 @@ export async function saveProjectPreview(
   if (!projectId) throw new Error("Missing projectId");
   if (!nodes.length) return { previewUrl: null };
 
-  const { renderProjectPreview } = await import("@/lib/project-preview");
+  const { renderProjectPreview } = await import("@/lib/preview/project");
   const previewBlob = await renderProjectPreview(nodes);
 
   const presignRes = await fetch("/api/projects/preview/presign", {

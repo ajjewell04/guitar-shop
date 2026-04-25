@@ -10,11 +10,8 @@ import React, {
 import type { ThreeEvent } from "@react-three/fiber";
 import { useGLTF } from "@react-three/drei";
 import * as THREE from "three";
-import { type NeckParams } from "@/lib/neck-params";
-import {
-  buildProceduralNeckMesh,
-  getNeckNutAnchorXmm,
-} from "@/lib/procedural-neck";
+import { type NeckParams } from "@/lib/neck/params";
+import { buildProceduralNeckMesh, getNeckNutAnchorXmm } from "@/lib/neck/mesh";
 
 const WORLD_SCALE = 0.001;
 

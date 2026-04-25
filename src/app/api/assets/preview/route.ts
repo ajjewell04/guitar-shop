@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import { supabaseServer } from "@/lib/supabase";
+import { supabaseServer } from "@/lib/supabase/server";
 import { requireUser } from "@/app/api/_shared/auth";
 import { jsonError } from "@/app/api/_shared/http";
-import { S3_BUCKET } from "@/lib/s3";
+import { S3_BUCKET } from "@/lib/s3/client";
 import { signGetFileUrl } from "@/app/api/_shared/s3";
 import { UpdateAssetPreviewBodySchema } from "@/app/api/assets/dto";
 import { getOwnedAsset } from "@/app/api/assets/service";

@@ -1,6 +1,7 @@
 import { CopyObjectCommand } from "@aws-sdk/client-s3";
-import { s3Client, S3_BUCKET, userS3Folder } from "@/lib/s3";
-import { supabaseServer } from "@/lib/supabase";
+import { s3Client, S3_BUCKET } from "@/lib/s3/client";
+import { userS3Folder } from "@/lib/s3/folder";
+import { supabaseServer } from "@/lib/supabase/server";
 import { unwrapRelation } from "@/app/api/_shared/s3";
 
 type Db = Awaited<ReturnType<typeof supabaseServer>>;

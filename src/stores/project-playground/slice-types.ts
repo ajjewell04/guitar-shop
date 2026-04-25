@@ -1,5 +1,5 @@
-import type { NeckParams } from "@/lib/neck-params";
-import type { HeadstockLoadState } from "@/components/procedural-neck-mesh";
+import type { NeckParams } from "@/lib/neck/params";
+import type { HeadstockLoadState } from "@/components/project-playground/procedural-neck-mesh";
 import type {
   PartType,
   SortKey,

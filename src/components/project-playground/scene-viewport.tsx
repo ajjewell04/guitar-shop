@@ -26,7 +26,7 @@ import type { GLTF } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { cn } from "@/lib/utils";
 import ProceduralNeckMesh, {
   type HeadstockLoadState,
-} from "@/components/procedural-neck-mesh";
+} from "@/components/project-playground/procedural-neck-mesh";
 import { useProjectPlaygroundStore } from "@/stores/project-playground/store";
 import { TRANSFORM_MODES } from "@/stores/project-playground/constants";
 import {

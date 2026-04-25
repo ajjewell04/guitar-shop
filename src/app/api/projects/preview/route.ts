@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { supabaseServer } from "@/lib/supabase";
+import { supabaseServer } from "@/lib/supabase/server";
 import { requireUser } from "../../_shared/auth";
 import { jsonError } from "../../_shared/http";
 import { signGetFileUrl } from "../../_shared/s3";

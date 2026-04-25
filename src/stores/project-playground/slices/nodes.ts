@@ -9,7 +9,7 @@ import type {
 import {
   toPreviewNodes,
   saveProjectPreview,
-} from "@/lib/project-preview-client";
+} from "@/lib/preview/project-client";
 
 export const createNodesSlice =
   (

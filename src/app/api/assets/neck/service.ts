@@ -1,7 +1,7 @@
-import { supabaseServer } from "@/lib/supabase";
-import { S3_BUCKET } from "@/lib/s3";
+import { supabaseServer } from "@/lib/supabase/server";
+import { S3_BUCKET } from "@/lib/s3/client";
 import { signPutObjectUrl } from "@/app/api/_shared/s3";
-import { normalizeNeckParams, DEFAULT_NECK_PARAMS } from "@/lib/neck-params";
+import { normalizeNeckParams, DEFAULT_NECK_PARAMS } from "@/lib/neck/params";
 
 type Db = Awaited<ReturnType<typeof supabaseServer>>;
 

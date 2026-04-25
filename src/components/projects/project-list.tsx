@@ -9,7 +9,7 @@ import Image from "next/image";
 import {
   saveProjectPreview,
   toPreviewNodes,
-} from "@/lib/project-preview-client";
+} from "@/lib/preview/project-client";
 
 type ProjectRow = {
   previewUrl: string | null;

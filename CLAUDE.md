@@ -72,13 +72,13 @@ Required env vars: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE
 
 ### Procedural Neck
 
-`src/lib/procedural-neck.ts` generates a fully parametric guitar neck as Three.js `BufferGeometry` (core, fretboard, nut, frets). Parameters are defined and validated by `NeckParamsSchema` in `src/lib/neck-params.ts`. The exported `buildProceduralNeckMesh(params)` returns a `THREE.Group`. The React wrapper is `src/components/procedural-neck-mesh.tsx`.
+`src/lib/procedural-neck.ts` generates a fully parametric guitar neck as Three.js `BufferGeometry` (core, fretboard, nut, frets). Parameters are defined and validated by `NeckParamsSchema` in `src/lib/neck-params.ts`. The exported `buildProceduralNeckMesh(params)` returns a `THREE.Group`. The React wrapper is `src/components/project-playground/procedural-neck-mesh.tsx`.
 
 Parametric necks are stored in Supabase with `upload_status: null` and no S3 object key — the mesh is generated client-side from `assets.meta.neck` on load.
 
 ### Project Creation Flow
 
-New projects are created via a strategy pattern in `src/components/new-project/strategies/`:
+New projects are created via a strategy pattern in `src/components/projects/new-project/strategies/`:
 
 - `blank` — empty project
 - `template` — copies a built-in GLB from `TEMPLATE_S3_KEYS` in `src/app/api/assets/service.ts`
@@ -91,6 +91,10 @@ Project thumbnails are rendered client-side: Three.js scene → offscreen canvas
 ## Testing
 
 Vitest is scoped to **Node.js only** — no DOM or browser environment. Test targets are service functions, lib utilities, mappers, and DTO schemas. Co-locate test files next to the code they test (`foo.test.ts` beside `foo.ts`).
+
+## Git
+
+Never run `git add`, `git commit`, or any command that modifies git state. The user manages all git operations.
 
 ## Coding Conventions
 

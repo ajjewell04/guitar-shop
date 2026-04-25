@@ -21,16 +21,16 @@ import { Button } from "@/components/ui/button";
 import Image from "next/image";
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { renderModelPreview } from "@/lib/model-preview";
+import { renderModelPreview } from "@/lib/preview/model";
 
 import {
   IMPORTABLE_PART_TYPES,
   type PartType,
   type ProjectMode,
   type TemplateType,
-} from "@/components/new-project/constants";
-import { createProjectWithStrategy } from "@/components/new-project/create-project";
-import type { NewProjectFormState } from "@/components/new-project/utils";
+} from "@/components/projects/new-project/constants";
+import { createProjectWithStrategy } from "@/components/projects/new-project/create-project";
+import type { NewProjectFormState } from "@/components/projects/new-project/utils";
 
 type NewProjectFormProps = React.ComponentPropsWithoutRef<"div"> & {
   onSuccess?: () => void;

@@ -1,5 +1,5 @@
 import { requestJson } from "@/lib/fetch";
-import { uploadToSignedUrl } from "@/lib/upload";
+import { uploadToSignedUrl } from "@/lib/s3/upload";
 import type { ProjectCreationStrategy } from "../utils";
 
 type PresignResponse = {

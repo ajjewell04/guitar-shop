@@ -1,8 +1,8 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
-import { supabaseServer } from "@/lib/supabase";
+import { supabaseServer } from "@/lib/supabase/server";
 import { mapLibraryAssetRow } from "@/app/api/assets/mappers";
-import CommunityLibraryView from "@/components/community-library";
+import CommunityLibraryView from "@/components/assets/community-library";
 
 type PageProps = {
   params: Promise<{

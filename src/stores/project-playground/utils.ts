@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import type { NeckParams } from "@/lib/neck-params";
+import type { NeckParams } from "@/lib/neck/params";
 import {
   ROTATION_MIN,
   ROTATION_MAX,

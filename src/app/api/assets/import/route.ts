@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { supabaseServer } from "@/lib/supabase";
-import { S3_BUCKET } from "@/lib/s3";
+import { supabaseServer } from "@/lib/supabase/server";
+import { S3_BUCKET } from "@/lib/s3/client";
 import { requireUser } from "@/app/api/_shared/auth";
 import { jsonError } from "@/app/api/_shared/http";
 import { ImportAssetBodySchema } from "@/app/api/assets/dto";

@@ -3,7 +3,7 @@
 import { cn } from "@/lib/utils";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
-import { renderModelPreview } from "@/lib/model-preview";
+import { renderModelPreview } from "@/lib/preview/model";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {

@@ -2,7 +2,7 @@ import type {
   PartType,
   ProjectMode,
   TemplateType,
-} from "@/components/new-project/constants";
+} from "@/components/projects/new-project/constants";
 
 export { requestJson } from "@/lib/fetch";
 

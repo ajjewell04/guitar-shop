@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { supabaseServer } from "@/lib/supabase";
+import { supabaseServer } from "@/lib/supabase/server";
 import { requireUser } from "@/app/api/_shared/auth";
 import { jsonError } from "@/app/api/_shared/http";
 import { PromoteProjectRootBodySchema } from "@/app/api/projects/dto";

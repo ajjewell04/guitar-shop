@@ -2,12 +2,12 @@
 
 import { cn } from "@/lib/utils";
 import { requestJson } from "@/lib/fetch";
-import { uploadToSignedUrl } from "@/lib/upload";
-import { renderModelPreview } from "@/lib/model-preview";
+import { uploadToSignedUrl } from "@/lib/s3/upload";
+import { renderModelPreview } from "@/lib/preview/model";
 import {
   IMPORTABLE_PART_TYPES,
   type PartType,
-} from "@/components/new-project/constants";
+} from "@/components/projects/new-project/constants";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
