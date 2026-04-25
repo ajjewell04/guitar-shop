@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/server";
+import { supabaseServer } from "@/lib/supabase";
 import { requireUser } from "@/app/api/_shared/auth";
 import { jsonError } from "@/app/api/_shared/http";
 import { mapProjectListRow } from "@/app/api/projects/mappers";
@@ -25,7 +25,7 @@ type ProjectListRow = {
 };
 
 export async function handleGet() {
-  const supabase = await createClient();
+  const supabase = await supabaseServer();
   const auth = await requireUser(supabase);
   if (auth instanceof Response) return auth;
 

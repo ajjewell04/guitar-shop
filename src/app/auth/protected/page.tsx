@@ -1,8 +1,8 @@
 import { LogoutButton } from "@/components/auth/logout-button";
-import { createClient } from "@/lib/server";
+import { supabaseServer } from "@/lib/supabase";
 
 export default async function ProtectedPage() {
-  const _supabase = await createClient();
+  const _supabase = await supabaseServer();
 
   return (
     <div className="flex h-svh w-full items-center justify-center gap-2">

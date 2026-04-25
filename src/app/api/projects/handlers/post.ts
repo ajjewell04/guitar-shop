@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/server";
+import { supabaseServer } from "@/lib/supabase";
 import { requireUser } from "@/app/api/_shared/auth";
 import { jsonError } from "@/app/api/_shared/http";
 import { CreateProjectBodySchema } from "@/app/api/projects/dto";
@@ -9,7 +9,7 @@ import {
 } from "@/app/api/projects/service";
 
 export async function handlePost(req: Request) {
-  const supabase = await createClient();
+  const supabase = await supabaseServer();
   const auth = await requireUser(supabase);
   if (auth instanceof Response) return auth;
 

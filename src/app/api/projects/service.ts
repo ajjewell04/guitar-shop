@@ -1,10 +1,7 @@
-import { createClient } from "@/lib/server";
 import { supabaseServer } from "@/lib/supabase";
 import { S3_BUCKET } from "@/lib/s3";
 
-type DbClient =
-  | Awaited<ReturnType<typeof createClient>>
-  | Awaited<ReturnType<typeof supabaseServer>>;
+type DbClient = Awaited<ReturnType<typeof supabaseServer>>;
 
 export async function getOwnedProject(
   db: DbClient,
