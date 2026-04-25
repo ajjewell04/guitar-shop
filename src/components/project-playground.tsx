@@ -805,7 +805,7 @@ export default function ProjectPlayground({
   ]);
 
   async function loadFreshPreviewNodes(projectId: string) {
-    const res = await fetch(`/api/project-nodes?projectId=${projectId}`, {
+    const res = await fetch(`/api/projects/nodes?projectId=${projectId}`, {
       cache: "no-store",
     });
     const data = (await res.json().catch(() => ({}))) as ProjectNodesResponse;
@@ -990,7 +990,7 @@ export default function ProjectPlayground({
     setErrorMessage(null);
 
     try {
-      const res = await fetch(`/api/project-nodes?projectId=${projectId}`, {
+      const res = await fetch(`/api/projects/nodes?projectId=${projectId}`, {
         cache: "no-store",
       });
       const data = (await res.json()) as ProjectNodesResponse;
@@ -1084,7 +1084,7 @@ export default function ProjectPlayground({
       scale?: number;
     },
   ) {
-    const res = await fetch("/api/project-nodes", {
+    const res = await fetch("/api/projects/nodes", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ nodeId, ...patch }),
@@ -1161,7 +1161,7 @@ export default function ProjectPlayground({
         };
         if (parentId) requestBody.parentId = parentId;
 
-        const res = await fetch("/api/project-nodes", {
+        const res = await fetch("/api/projects/nodes", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(requestBody),
@@ -1259,7 +1259,7 @@ export default function ProjectPlayground({
     try {
       await flushPendingNodeSaves();
 
-      const res = await fetch("/api/project-nodes", {
+      const res = await fetch("/api/projects/nodes", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ nodeId }),
@@ -1364,7 +1364,7 @@ export default function ProjectPlayground({
     nodeId: string,
     transforms: NodeTransforms,
   ) {
-    const res = await fetch("/api/project-nodes", {
+    const res = await fetch("/api/projects/nodes", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -1635,7 +1635,7 @@ export default function ProjectPlayground({
     setErrorMessage(null);
 
     try {
-      const res = await fetch("/api/models/neck", {
+      const res = await fetch("/api/assets/neck", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: "Parametric Neck" }),
@@ -1837,7 +1837,7 @@ export default function ProjectPlayground({
       const glbFile = await exportGroupToGlb(group);
       const previewBlob = await renderModelPreview(glbFile);
 
-      const presignRes = await fetch("/api/models/neck/presign", {
+      const presignRes = await fetch("/api/assets/neck/presign", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ assetId: node.asset.id }),
@@ -1858,7 +1858,7 @@ export default function ProjectPlayground({
         body: previewBlob,
       });
 
-      const saveRes = await fetch("/api/models/neck/save", {
+      const saveRes = await fetch("/api/assets/neck/save", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

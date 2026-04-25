@@ -8,18 +8,18 @@ import {
   CreateProjectNodeBodySchema,
   DeleteProjectNodeBodySchema,
   PatchProjectNodeBodySchema,
-} from "@/app/api/project-nodes/dto";
+} from "@/app/api/projects/nodes/dto";
 import {
   mapLibraryAssetRow,
   mapNodeRow,
-} from "@/app/api/project-nodes/mappers";
+} from "@/app/api/projects/nodes/mappers";
 import {
   getOwnedProject,
   getOwnedAsset,
   getNextSortIndex,
   buildInitialTransforms,
   mergeTransforms,
-} from "@/app/api/project-nodes/service";
+} from "@/app/api/projects/nodes/service";
 type NodeAsset = NonNullable<Parameters<typeof mapNodeRow>[0]["asset"]>;
 
 export async function GET(req: Request) {

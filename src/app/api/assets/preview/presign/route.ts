@@ -3,8 +3,8 @@ import { supabaseServer } from "@/lib/supabase";
 import { requireUser } from "@/app/api/_shared/auth";
 import { jsonError } from "@/app/api/_shared/http";
 import { signPutObjectUrl } from "@/app/api/_shared/s3";
-import { PresignModelPreviewBodySchema } from "@/app/api/models/dto";
-import { getOwnedAsset } from "@/app/api/models/service";
+import { PresignModelPreviewBodySchema } from "@/app/api/assets/dto";
+import { getOwnedAsset } from "@/app/api/assets/service";
 
 export async function POST(req: Request) {
   const supabase = await supabaseServer();

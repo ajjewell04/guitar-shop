@@ -58,7 +58,7 @@ export default function CommunityLibraryView({
   async function addToMyLibrary(sourceAssetId: string) {
     setCopyingAssetId(sourceAssetId);
     try {
-      const res = await fetch("/api/models", {
+      const res = await fetch("/api/assets", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -87,7 +87,7 @@ export default function CommunityLibraryView({
     setAssets((prev) => prev.filter((a) => a.id !== assetId));
 
     try {
-      const res = await fetch("/api/models", {
+      const res = await fetch("/api/assets", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ assetId }),
@@ -121,7 +121,7 @@ export default function CommunityLibraryView({
 
     const previewBlob = await renderModelPreview(modelFile);
 
-    const presignRes = await fetch("/api/models/preview/presign", {
+    const presignRes = await fetch("/api/assets/preview/presign", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -142,7 +142,7 @@ export default function CommunityLibraryView({
     });
     if (!putRes.ok) throw new Error("Preview upload failed");
 
-    const finalizeRes = await fetch("/api/models/preview", {
+    const finalizeRes = await fetch("/api/assets/preview", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -170,7 +170,7 @@ export default function CommunityLibraryView({
       const params = new URLSearchParams({ view: "library" });
       if (ownerId) params.set("ownerId", ownerId);
 
-      const res = await fetch(`/api/models?${params.toString()}`, {
+      const res = await fetch(`/api/assets?${params.toString()}`, {
         cache: "no-store",
       });
       const payload = await res.json().catch(() => ({}));

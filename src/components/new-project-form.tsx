@@ -139,7 +139,7 @@ export function NewProjectForm({
 
     const loadTemplatePreviews = async () => {
       try {
-        const res = await fetch("/api/models/templates", { cache: "no-store" });
+        const res = await fetch("/api/assets/templates", { cache: "no-store" });
         const payload = (await res
           .json()
           .catch(() => ({}))) as TemplatePreviewsResponse;

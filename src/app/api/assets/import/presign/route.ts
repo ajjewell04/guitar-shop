@@ -4,7 +4,7 @@ import { userS3Folder } from "@/lib/s3";
 import { requireUser } from "@/app/api/_shared/auth";
 import { jsonError } from "@/app/api/_shared/http";
 import { signPutObjectUrl } from "@/app/api/_shared/s3";
-import { PresignImportBodySchema } from "@/app/api/models/dto";
+import { PresignImportBodySchema } from "@/app/api/assets/dto";
 
 export async function POST(req: Request) {
   const supabase = await supabaseServer();

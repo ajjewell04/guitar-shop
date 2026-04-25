@@ -15,15 +15,15 @@ import {
   CreateModelBodySchema,
   DeleteModelBodySchema,
   PatchModelBodySchema,
-} from "@/app/api/models/dto";
-import { mapLibraryAssetRow } from "@/app/api/models/mappers";
+} from "@/app/api/assets/dto";
+import { mapLibraryAssetRow } from "@/app/api/assets/mappers";
 import {
   getOwnedAsset,
   getOwnedProject,
   mergePosition,
   TEMPLATE_S3_KEYS,
   toCopySource,
-} from "@/app/api/models/service";
+} from "@/app/api/assets/service";
 
 type ProjectModelRow = {
   id: string;

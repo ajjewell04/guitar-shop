@@ -4,8 +4,8 @@ import { requireUser } from "../../_shared/auth";
 import { jsonError } from "../../_shared/http";
 import { S3_BUCKET } from "@/lib/s3";
 import { signGetFileUrl } from "../../_shared/s3";
-import { UpdateModelPreviewBodySchema } from "@/app/api/models/dto";
-import { getOwnedAsset } from "@/app/api/models/service";
+import { UpdateModelPreviewBodySchema } from "@/app/api/assets/dto";
+import { getOwnedAsset } from "@/app/api/assets/service";
 
 export async function POST(req: Request) {
   const supabase = await supabaseServer();

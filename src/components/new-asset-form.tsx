@@ -87,7 +87,7 @@ export function NewAssetForm({
     setIsSubmitting(true);
     try {
       const modelPresign = await requestJson<PresignResponse>(
-        "/api/models/import/presign",
+        "/api/assets/import/presign",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -104,7 +104,7 @@ export function NewAssetForm({
       const previewBlob = await renderModelPreview(file);
 
       const previewPresign = await requestJson<PresignResponse>(
-        "/api/models/import/presign",
+        "/api/assets/import/presign",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -123,7 +123,7 @@ export function NewAssetForm({
       );
 
       const finalize = await requestJson<FinalizeImportResponse>(
-        "/api/models/import",
+        "/api/assets/import",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },

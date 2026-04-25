@@ -33,7 +33,7 @@ export const importStrategy: ProjectCreationStrategy = {
     if (!state.partType) throw new Error("Part type is required for import.");
 
     const modelPresign = await requestJson<PresignResponse>(
-      "/api/models/import/presign",
+      "/api/assets/import/presign",
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -54,7 +54,7 @@ export const importStrategy: ProjectCreationStrategy = {
     const previewBlob = await deps.renderModelPreview(state.file);
 
     const previewPresign = await requestJson<PresignResponse>(
-      "/api/models/import/presign",
+      "/api/assets/import/presign",
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -73,7 +73,7 @@ export const importStrategy: ProjectCreationStrategy = {
     );
 
     const finalize = await requestJson<FinalizeImportResponse>(
-      "/api/models/import",
+      "/api/assets/import",
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },

@@ -3,7 +3,7 @@ import { supabaseServer } from "@/lib/supabase";
 import { requireUser } from "../../_shared/auth";
 import { jsonError } from "../../_shared/http";
 import { signGetFileUrl, unwrapRelation } from "../../_shared/s3";
-import { ExportModelQuerySchema } from "@/app/api/models/dto";
+import { ExportModelQuerySchema } from "@/app/api/assets/dto";
 
 export async function GET(req: Request) {
   const supabase = await supabaseServer();

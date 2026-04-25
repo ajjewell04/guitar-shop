@@ -10,7 +10,7 @@ export const templateStrategy: ProjectCreationStrategy = {
     }
 
     const data = await requestJson<TemplateCreateResponse>(
-      "/api/models",
+      "/api/assets",
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },

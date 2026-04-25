@@ -3,7 +3,7 @@ import { supabaseServer } from "@/lib/supabase";
 import { S3_BUCKET } from "@/lib/s3";
 import { requireUser } from "../../_shared/auth";
 import { jsonError } from "../../_shared/http";
-import { ImportModelBodySchema } from "@/app/api/models/dto";
+import { ImportModelBodySchema } from "@/app/api/assets/dto";
 
 export async function POST(req: Request) {
   const supabase = await supabaseServer();

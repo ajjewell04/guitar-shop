@@ -74,7 +74,7 @@ function HomeContent() {
     inFlightRegenerationRef.current.add(projectId);
 
     try {
-      const res = await fetch(`/api/project-nodes?projectId=${projectId}`, {
+      const res = await fetch(`/api/projects/nodes?projectId=${projectId}`, {
         cache: "no-store",
       });
       const payload = (await res

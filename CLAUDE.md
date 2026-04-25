@@ -77,8 +77,8 @@ Parametric necks are stored in Supabase with `upload_status: null` and no S3 obj
 New projects are created via a strategy pattern in `src/components/new-project/strategies/`:
 
 - `blank` — empty project
-- `template` — copies a built-in GLB from `TEMPLATE_S3_KEYS` in `src/app/api/models/service.ts`
-- `import` — user uploads a GLB via presign → upload → finalize at `/api/models/import`
+- `template` — copies a built-in GLB from `TEMPLATE_S3_KEYS` in `src/app/api/assets/service.ts`
+- `import` — user uploads a GLB via presign → upload → finalize at `/api/assets/import`
 
 ### Preview Generation
 
