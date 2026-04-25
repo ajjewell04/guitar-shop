@@ -1,5 +1,6 @@
+import { requestJson } from "@/lib/fetch";
+import { uploadToSignedUrl } from "@/lib/upload";
 import type { ProjectCreationStrategy } from "../utils";
-import { requestJson } from "../utils";
 
 type PresignResponse = {
   url: string;
@@ -11,19 +12,6 @@ type PresignResponse = {
 type FinalizeImportResponse = {
   assetId?: string;
 };
-
-async function uploadToSignedUrl(
-  url: string,
-  contentType: string,
-  body: Blob | File,
-) {
-  const putRes = await fetch(url, {
-    method: "PUT",
-    headers: { "Content-Type": contentType },
-    body,
-  });
-  if (!putRes.ok) throw new Error("Signed upload failed");
-}
 
 export const importStrategy: ProjectCreationStrategy = {
   async prepare(state, deps) {

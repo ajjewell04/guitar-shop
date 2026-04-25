@@ -1,12 +1,13 @@
 "use client";
 
 import { cn } from "@/lib/utils";
+import { requestJson } from "@/lib/fetch";
+import { uploadToSignedUrl } from "@/lib/upload";
 import { renderModelPreview } from "@/lib/model-preview";
 import {
   IMPORTABLE_PART_TYPES,
   type PartType,
 } from "@/components/new-project/constants";
-import { requestJson } from "@/components/new-project/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -33,22 +34,6 @@ type PresignResponse = {
 type FinalizeImportResponse = {
   assetId?: string;
 };
-
-async function uploadToSignedUrl(
-  url: string,
-  contentType: string,
-  body: Blob | File,
-) {
-  const putRes = await fetch(url, {
-    method: "PUT",
-    headers: { "Content-Type": contentType },
-    body,
-  });
-
-  if (!putRes.ok) {
-    throw new Error("Signed upload failed");
-  }
-}
 
 export function NewAssetForm({
   className,

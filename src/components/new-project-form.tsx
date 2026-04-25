@@ -41,6 +41,12 @@ type TemplatePreviewsResponse = {
   error?: string;
 };
 
+const TEMPLATES: { id: TemplateType; label: string }[] = [
+  { id: "stratocaster", label: "Stratocaster" },
+  { id: "telecaster", label: "Telecaster" },
+  { id: "les-paul", label: "Les Paul" },
+];
+
 export function NewProjectForm({
   className,
   onSuccess,
@@ -51,9 +57,9 @@ export function NewProjectForm({
   const [projectType, setProjectType] = useState<ProjectMode | null>(null);
   const [templateType, setTemplateType] = useState<TemplateType | null>(null);
   const [file, setFile] = useState<File | null>(null);
+  const [hasSelectedFile, setHasSelectedFile] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isImporting, setIsImporting] = useState(false);
   const [assetName, setAssetName] = useState("");
   const [partType, setPartType] = useState<PartType | "">("");
   const [templatePreviews, setTemplatePreviews] = useState<
@@ -66,7 +72,7 @@ export function NewProjectForm({
     Partial<Record<TemplateType, boolean>>
   >({});
 
-  async function onImportFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+  function onImportFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     setError(null);
     const selectedFile = e.target.files?.[0] ?? null;
     setFile(selectedFile);
@@ -209,7 +215,7 @@ export function NewProjectForm({
                   variant={projectType === "import" ? "secondary" : "outline"}
                   onClick={() => {
                     setProjectType("import");
-                    setIsImporting(false);
+                    setHasSelectedFile(false);
                   }}
                 >
                   Import
@@ -220,28 +226,28 @@ export function NewProjectForm({
                   variant={projectType === "template" ? "secondary" : "outline"}
                   onClick={() => {
                     setProjectType("template");
-                    setIsImporting(false);
+                    setHasSelectedFile(false);
                   }}
                 >
                   Template
                 </Button>
               </div>
+
               {projectType === "import" && (
                 <div>
-                  <div className="mt-4 flex gap-2">
-                    <Label htmlFor="filename"></Label>
+                  <div className="mt-4">
                     <input
                       id="filename"
                       type="file"
                       className="text-sm"
                       onChange={(e) => {
-                        setIsImporting(true);
+                        setHasSelectedFile(true);
                         onImportFileChange(e);
                       }}
                     />
                   </div>
                   <br />
-                  {isImporting && (
+                  {hasSelectedFile && (
                     <div className="space-y-4">
                       <div className="flex flex-row gap-4">
                         <div className="flex-1 min-w-0">
@@ -285,6 +291,7 @@ export function NewProjectForm({
                   )}
                 </div>
               )}
+
               {projectType === "template" && (
                 <div className="mt-4">
                   {templatePreviewError && (
@@ -292,13 +299,8 @@ export function NewProjectForm({
                       {templatePreviewError}
                     </p>
                   )}
-
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                    {[
-                      { id: "stratocaster" as const, label: "Stratocaster" },
-                      { id: "telecaster" as const, label: "Telecaster" },
-                      { id: "les-paul" as const, label: "Les Paul" },
-                    ].map((template) => {
+                    {TEMPLATES.map((template) => {
                       const src = templatePreviews[template.id];
                       const failed = brokenPreview[template.id] || !src;
 
@@ -333,7 +335,6 @@ export function NewProjectForm({
                                 Preview unavailable
                               </div>
                             )}
-
                             <div className="absolute inset-0 bg-black/20" />
                             <span className="relative z-10 font-bold text-(--primary)">
                               {template.label}

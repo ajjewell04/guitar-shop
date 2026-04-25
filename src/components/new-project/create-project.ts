@@ -1,7 +1,7 @@
+import { requestJson } from "@/lib/fetch";
 import type { ProjectMode } from "./constants";
 import type { NewProjectFormState, StrategyDeps } from "./utils";
 import { STRATEGIES } from "./strategies";
-import { requestJson } from "./utils";
 
 type CreateProjectResponse = { id?: string };
 

@@ -5,7 +5,11 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/client";
 import { Button } from "@/components/ui/button";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { PartFilters } from "@/components/ui/filters";
+import {
+  PartFilters,
+  type PartType,
+  type SortKey,
+} from "@/components/ui/filters";
 
 type WorkviewProps = { children: React.ReactNode } & {
   onNewProject?: () => void;
@@ -17,44 +21,15 @@ type NavConfig = {
   showFilters: boolean;
 };
 
-type PartType =
-  | "all"
-  | "body"
-  | "neck"
-  | "headstock"
-  | "bridge"
-  | "tuning_machine"
-  | "pickup"
-  | "pickguard"
-  | "knob"
-  | "switch"
-  | "strap_button"
-  | "output_jack"
-  | "miscellaneous";
-
-type SortKey = "asc" | "desc";
-
 function getNavConfig(pathname: string): NavConfig {
   if (pathname === "/") {
-    return {
-      title: "Projects",
-      showSearch: true,
-      showFilters: false,
-    };
+    return { title: "Projects", showSearch: true, showFilters: false };
   }
   if (pathname === "/library") {
-    return {
-      title: "Community Library",
-      showSearch: true,
-      showFilters: true,
-    };
+    return { title: "Community Library", showSearch: true, showFilters: true };
   }
   if (pathname.startsWith("/library/")) {
-    return {
-      title: "My Library",
-      showSearch: true,
-      showFilters: true,
-    };
+    return { title: "My Library", showSearch: true, showFilters: true };
   }
   if (pathname.startsWith("/projects/")) {
     return {
@@ -63,11 +38,7 @@ function getNavConfig(pathname: string): NavConfig {
       showFilters: false,
     };
   }
-  return {
-    title: "Workview",
-    showSearch: false,
-    showFilters: false,
-  };
+  return { title: "Workview", showSearch: false, showFilters: false };
 }
 
 export default function WorkView({ children, onNewProject }: WorkviewProps) {
@@ -98,14 +69,14 @@ export default function WorkView({ children, onNewProject }: WorkviewProps) {
   }
 
   useEffect(() => {
-    const fetchUser = createClient();
+    const supabase = createClient();
 
-    fetchUser.auth.getUser().then(({ data }) => {
+    supabase.auth.getUser().then(({ data }) => {
       setUserEmail(data.user?.email ?? null);
     });
 
-    const { data: authListener } = fetchUser.auth.onAuthStateChange(
-      (event, session) => {
+    const { data: authListener } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
         setUserEmail(session?.user.email ?? null);
       },
     );
