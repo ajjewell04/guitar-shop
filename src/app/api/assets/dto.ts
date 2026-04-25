@@ -1,7 +1,6 @@
 import { z } from "zod";
 
 export const GetAssetsQuerySchema = z.object({
-  view: z.enum(["library"]).optional(),
   ownerId: z.uuid().optional(),
 });
 

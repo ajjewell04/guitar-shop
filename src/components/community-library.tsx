@@ -167,7 +167,7 @@ export default function CommunityLibraryView({
 
   useEffect(() => {
     const loadUploadedAssets = async () => {
-      const params = new URLSearchParams({ view: "library" });
+      const params = new URLSearchParams();
       if (ownerId) params.set("ownerId", ownerId);
 
       const res = await fetch(`/api/assets?${params.toString()}`, {
