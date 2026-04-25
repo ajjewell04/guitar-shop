@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase";
-import { requireUser } from "../../_shared/auth";
-import { jsonError } from "../../_shared/http";
+import { requireUser } from "@/app/api/_shared/auth";
+import { jsonError } from "@/app/api/_shared/http";
 import { S3_BUCKET } from "@/lib/s3";
-import { signGetFileUrl } from "../../_shared/s3";
-import { UpdateModelPreviewBodySchema } from "@/app/api/assets/dto";
+import { signGetFileUrl } from "@/app/api/_shared/s3";
+import { UpdateAssetPreviewBodySchema } from "@/app/api/assets/dto";
 import { getOwnedAsset } from "@/app/api/assets/service";
 
 export async function POST(req: Request) {
@@ -12,7 +12,7 @@ export async function POST(req: Request) {
   const auth = await requireUser(supabase);
   if (auth instanceof Response) return auth;
 
-  const parsed = UpdateModelPreviewBodySchema.safeParse(
+  const parsed = UpdateAssetPreviewBodySchema.safeParse(
     await req.json().catch(() => null),
   );
   if (!parsed.success) return jsonError("Invalid request body", 400);

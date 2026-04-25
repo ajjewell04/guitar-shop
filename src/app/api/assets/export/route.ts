@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase";
-import { requireUser } from "../../_shared/auth";
-import { jsonError } from "../../_shared/http";
-import { signGetFileUrl, unwrapRelation } from "../../_shared/s3";
-import { ExportModelQuerySchema } from "@/app/api/assets/dto";
+import { requireUser } from "@/app/api/_shared/auth";
+import { jsonError } from "@/app/api/_shared/http";
+import { signGetFileUrl, unwrapRelation } from "@/app/api/_shared/s3";
+import { ExportAssetQuerySchema } from "@/app/api/assets/dto";
 
 export async function GET(req: Request) {
   const supabase = await supabaseServer();
@@ -11,7 +11,7 @@ export async function GET(req: Request) {
   if (auth instanceof Response) return auth;
 
   const query = Object.fromEntries(new URL(req.url).searchParams.entries());
-  const parsed = ExportModelQuerySchema.safeParse(query);
+  const parsed = ExportAssetQuerySchema.safeParse(query);
   if (!parsed.success) return jsonError("Missing or invalid projectId", 400);
 
   const { data: project, error } = await supabase

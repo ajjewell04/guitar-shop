@@ -1,16 +1,16 @@
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase";
 import { S3_BUCKET } from "@/lib/s3";
-import { requireUser } from "../../_shared/auth";
-import { jsonError } from "../../_shared/http";
-import { ImportModelBodySchema } from "@/app/api/assets/dto";
+import { requireUser } from "@/app/api/_shared/auth";
+import { jsonError } from "@/app/api/_shared/http";
+import { ImportAssetBodySchema } from "@/app/api/assets/dto";
 
 export async function POST(req: Request) {
   const supabase = await supabaseServer();
   const auth = await requireUser(supabase);
   if (auth instanceof Response) return auth;
 
-  const parsed = ImportModelBodySchema.safeParse(
+  const parsed = ImportAssetBodySchema.safeParse(
     await req.json().catch(() => null),
   );
   if (!parsed.success) return jsonError("Invalid request body", 400);
