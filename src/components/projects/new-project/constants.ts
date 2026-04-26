@@ -1,4 +1,4 @@
-export const PART_TYPES = [
+const PART_TYPES = [
   "body",
   "neck",
   "headstock",
@@ -17,11 +17,6 @@ export type PartType = (typeof PART_TYPES)[number];
 
 export const IMPORTABLE_PART_TYPES = [...PART_TYPES] as PartType[];
 
-export const TEMPLATE_TYPES = [
-  "stratocaster",
-  "telecaster",
-  "les-paul",
-] as const;
-export type TemplateType = (typeof TEMPLATE_TYPES)[number];
+export type TemplateType = "stratocaster" | "telecaster" | "les-paul";
 
 export type ProjectMode = "blank" | "import" | "template";

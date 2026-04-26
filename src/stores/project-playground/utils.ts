@@ -14,10 +14,9 @@ import type {
   TransformInputDraft,
   TransformInputKey,
   NumericNeckKey,
-  Vec3,
 } from "./types";
 
-export function clamp(value: number, min: number, max: number) {
+function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
 }
 
@@ -29,12 +28,12 @@ export function clampScale(value: number) {
   return clamp(value, SCALE_MIN, SCALE_MAX);
 }
 
-export function clampNeckNumber(key: NumericNeckKey, value: number) {
+function clampNeckNumber(key: NumericNeckKey, value: number) {
   const meta = NUMERIC_NECK_META[key];
   return clamp(value, meta.min, meta.max);
 }
 
-export function finiteNumber(value: unknown, fallback: number) {
+function finiteNumber(value: unknown, fallback: number) {
   return typeof value === "number" && Number.isFinite(value) ? value : fallback;
 }
 
@@ -197,8 +196,4 @@ export function clampHeadstockTransforms(
     },
     scale: clampNeckNumber("headstockScale", transforms.scale),
   };
-}
-
-export function vec3FromObject(obj: THREE.Object3D): Vec3 {
-  return { x: obj.position.x, y: obj.position.y, z: obj.position.z };
 }

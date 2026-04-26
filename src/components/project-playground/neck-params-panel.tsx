@@ -14,11 +14,7 @@ import {
   HEEL_NUMERIC_NECK_KEYS,
   ALIGNMENT_NUMERIC_NECK_KEYS,
 } from "@/stores/project-playground/constants";
-import {
-  DEFAULT_NECK_PARAMS,
-  normalizeNeckParams,
-  type NeckParams,
-} from "@/lib/neck/params";
+import { DEFAULT_NECK_PARAMS, type NeckParams } from "@/lib/neck/params";
 import type { NumericNeckKey } from "@/stores/project-playground/types";
 import { TransformSection } from "./transform-section";
 
@@ -360,6 +356,3 @@ export function NeckParamsPanel({ getGroupForNode }: NeckParamsPanelProps) {
     </aside>
   );
 }
-
-// Re-export normalizeNeckParams so the panel doesn't need to import it directly
-export { normalizeNeckParams };

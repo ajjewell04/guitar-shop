@@ -15,7 +15,7 @@ import { buildProceduralNeckMesh, getNeckNutAnchorXmm } from "@/lib/neck/mesh";
 
 const WORLD_SCALE = 0.001;
 
-export type HeadstockLoadStatus = "idle" | "loading" | "ready" | "error";
+type HeadstockLoadStatus = "idle" | "loading" | "ready" | "error";
 
 export type HeadstockLoadState = {
   status: HeadstockLoadStatus;

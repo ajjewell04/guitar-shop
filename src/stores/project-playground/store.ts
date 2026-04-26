@@ -9,8 +9,6 @@ import { createTransformsSlice } from "./slices/transforms";
 import { createNeckSlice } from "./slices/neck";
 import type { FullStore } from "./slice-types";
 
-export type { FullStore };
-
 export function createProjectPlaygroundStore(projectId: string | undefined) {
   return createStore<FullStore>()((...args) => ({
     ...createUISlice(...args),

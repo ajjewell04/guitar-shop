@@ -4,7 +4,7 @@ const PREVIEW_WIDTH = 640;
 const PREVIEW_HEIGHT = 640;
 export const PREVIEW_RIGHT_ELEVATION_RATIO = 0.28;
 
-export type PreviewScene = {
+type PreviewScene = {
   canvas: HTMLCanvasElement;
   renderer: THREE.WebGLRenderer;
   scene: THREE.Scene;

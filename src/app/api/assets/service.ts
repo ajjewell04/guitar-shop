@@ -34,7 +34,7 @@ export const TEMPLATE_S3_KEYS = {
   },
 } as const;
 
-export function toCopySource(bucket: string, key: string) {
+function toCopySource(bucket: string, key: string) {
   return `${bucket}/${key.split("/").map(encodeURIComponent).join("/")}`;
 }
 

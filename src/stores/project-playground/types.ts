@@ -24,7 +24,7 @@ export type LibraryAsset = {
   modelUrl: string | null;
 };
 
-export type Vec3 = { x: number; y: number; z: number };
+type Vec3 = { x: number; y: number; z: number };
 export type NodeTransforms = {
   position: Vec3;
   rotation: Vec3;

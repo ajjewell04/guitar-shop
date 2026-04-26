@@ -42,16 +42,3 @@ export const PatchProjectNodeBodySchema = z
 export const DeleteProjectNodeBodySchema = z.object({
   nodeId: z.uuid(),
 });
-
-export type GetProjectNodesQueryDto = z.infer<
-  typeof GetProjectNodesQuerySchema
->;
-export type CreateProjectNodeBodyDto = z.infer<
-  typeof CreateProjectNodeBodySchema
->;
-export type PatchProjectNodeBodyDto = z.infer<
-  typeof PatchProjectNodeBodySchema
->;
-export type DeleteProjectNodeBodyDto = z.infer<
-  typeof DeleteProjectNodeBodySchema
->;
