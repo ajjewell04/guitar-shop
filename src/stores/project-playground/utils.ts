@@ -98,7 +98,7 @@ export function toNumericInputDraft(
   params: NeckParams,
 ): Record<NumericNeckKey, string> {
   return Object.fromEntries(
-    NUMERIC_NECK_KEYS.map((k) => [k, String(params[k] as number)]),
+    NUMERIC_NECK_KEYS.map((k) => [k, String(params[k])]),
   ) as Record<NumericNeckKey, string>;
 }
 

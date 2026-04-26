@@ -180,7 +180,7 @@ export function ProjectList({ initialProjects }: ProjectListProps) {
                   disabled={deletingProjectId === project.id}
                   onClick={(e) => {
                     e.preventDefault();
-                    onDelete(project.id);
+                    void onDelete(project.id);
                   }}
                 >
                   {deletingProjectId === project.id ? "Deleting..." : "Delete"}

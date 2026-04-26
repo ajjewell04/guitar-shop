@@ -72,15 +72,15 @@ export default function Sidebar({
       setAssets(data ?? []);
     };
 
-    loadProjects();
-    loadAssets();
+    void loadProjects();
+    void loadAssets();
 
     const onProjectsChanged = () => {
-      loadProjects();
+      void loadProjects();
     };
 
     const onAssetsChanged = () => {
-      loadAssets();
+      void loadAssets();
     };
 
     window.addEventListener("projects-changed", onProjectsChanged);

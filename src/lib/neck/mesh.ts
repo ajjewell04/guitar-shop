@@ -127,10 +127,13 @@ function createPrismGeometry(topGrid: PointGrid, bottomGrid: PointGrid) {
   if (yCount === 0) return geometry;
 
   for (let ix = 0; ix < xCount; ix++) {
+    const topRow = topGrid[ix];
+    const bottomRow = bottomGrid[ix];
     if (
-      topGrid[ix].length !== yCount ||
-      bottomGrid[ix] == null ||
-      bottomGrid[ix].length !== yCount
+      !topRow ||
+      topRow.length !== yCount ||
+      !bottomRow ||
+      bottomRow.length !== yCount
     ) {
       return geometry;
     }
@@ -153,15 +156,15 @@ function createPrismGeometry(topGrid: PointGrid, bottomGrid: PointGrid) {
 
   for (let ix = 0; ix < xCount - 1; ix++) {
     for (let iy = 0; iy < yCount - 1; iy++) {
-      const t00 = topGrid[ix][iy];
-      const t10 = topGrid[ix + 1][iy];
-      const t11 = topGrid[ix + 1][iy + 1];
-      const t01 = topGrid[ix][iy + 1];
+      const t00 = topGrid[ix]![iy]!;
+      const t10 = topGrid[ix + 1]![iy]!;
+      const t11 = topGrid[ix + 1]![iy + 1]!;
+      const t01 = topGrid[ix]![iy + 1]!;
 
-      const b00 = bottomGrid[ix][iy];
-      const b10 = bottomGrid[ix + 1][iy];
-      const b11 = bottomGrid[ix + 1][iy + 1];
-      const b01 = bottomGrid[ix][iy + 1];
+      const b00 = bottomGrid[ix]![iy]!;
+      const b10 = bottomGrid[ix + 1]![iy]!;
+      const b11 = bottomGrid[ix + 1]![iy + 1]!;
+      const b01 = bottomGrid[ix]![iy + 1]!;
 
       pushQuad(t00, t10, t11, t01);
       pushQuad(b00, b01, b11, b10);
@@ -170,34 +173,34 @@ function createPrismGeometry(topGrid: PointGrid, bottomGrid: PointGrid) {
 
   for (let ix = 0; ix < xCount - 1; ix++) {
     pushQuad(
-      topGrid[ix][0],
-      topGrid[ix + 1][0],
-      bottomGrid[ix + 1][0],
-      bottomGrid[ix][0],
+      topGrid[ix]![0]!,
+      topGrid[ix + 1]![0]!,
+      bottomGrid[ix + 1]![0]!,
+      bottomGrid[ix]![0]!,
     );
   }
   for (let ix = 0; ix < xCount - 1; ix++) {
     pushQuad(
-      topGrid[ix + 1][yCount - 1],
-      topGrid[ix][yCount - 1],
-      bottomGrid[ix][yCount - 1],
-      bottomGrid[ix + 1][yCount - 1],
+      topGrid[ix + 1]![yCount - 1]!,
+      topGrid[ix]![yCount - 1]!,
+      bottomGrid[ix]![yCount - 1]!,
+      bottomGrid[ix + 1]![yCount - 1]!,
     );
   }
   for (let iy = 0; iy < yCount - 1; iy++) {
     pushQuad(
-      topGrid[0][iy + 1],
-      topGrid[0][iy],
-      bottomGrid[0][iy],
-      bottomGrid[0][iy + 1],
+      topGrid[0]![iy + 1]!,
+      topGrid[0]![iy]!,
+      bottomGrid[0]![iy]!,
+      bottomGrid[0]![iy + 1]!,
     );
   }
   for (let iy = 0; iy < yCount - 1; iy++) {
     pushQuad(
-      topGrid[xCount - 1][iy],
-      topGrid[xCount - 1][iy + 1],
-      bottomGrid[xCount - 1][iy + 1],
-      bottomGrid[xCount - 1][iy],
+      topGrid[xCount - 1]![iy]!,
+      topGrid[xCount - 1]![iy + 1]!,
+      bottomGrid[xCount - 1]![iy + 1]!,
+      bottomGrid[xCount - 1]![iy]!,
     );
   }
 
@@ -371,7 +374,7 @@ function buildNeckCoreMesh(
 
   for (let i = 0; i < stations; i++) {
     for (let j = 0; j < ringSegments; j++) {
-      const p = rings[i][j];
+      const p = rings[i]![j]!;
       positions.push(p.x, p.y, p.z);
     }
   }
@@ -391,7 +394,7 @@ function buildNeckCoreMesh(
   }
 
   // Cap start (headstock-side end)
-  const startCenter = ringCentroid(rings[0]);
+  const startCenter = ringCentroid(rings[0]!);
   const startCenterIndex = positions.length / 3;
   positions.push(startCenter.x, startCenter.y, startCenter.z);
 
@@ -404,7 +407,7 @@ function buildNeckCoreMesh(
 
   // Cap end (heel end)
   const base = (stations - 1) * ringSegments;
-  const endCenter = ringCentroid(rings[stations - 1]);
+  const endCenter = ringCentroid(rings[stations - 1]!);
   const endCenterIndex = positions.length / 3;
   positions.push(endCenter.x, endCenter.y, endCenter.z);
 

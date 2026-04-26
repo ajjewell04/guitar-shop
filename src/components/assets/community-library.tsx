@@ -179,7 +179,7 @@ export default function CommunityLibraryView({
       }
     };
 
-    run();
+    void run();
 
     return () => {
       cancelled = true;
@@ -240,7 +240,7 @@ export default function CommunityLibraryView({
                     {isCommunityView ? (
                       <Button
                         className="cursor-pointer"
-                        onClick={() => addToMyLibrary(asset.id)}
+                        onClick={() => void addToMyLibrary(asset.id)}
                         disabled={copyingAssetId === asset.id}
                       >
                         {copyingAssetId === asset.id
@@ -251,7 +251,7 @@ export default function CommunityLibraryView({
                       <Button
                         variant="outline"
                         className="cursor-pointer border-red-600 text-red-600"
-                        onClick={() => deleteFromLibrary(asset.id)}
+                        onClick={() => void deleteFromLibrary(asset.id)}
                         disabled={deletingAssetId === asset.id}
                       >
                         {deletingAssetId === asset.id

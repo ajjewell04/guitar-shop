@@ -188,7 +188,7 @@ export function NewProjectForm({
           <CardTitle>New Project</CardTitle>
         </CardHeader>
         <CardContent>
-          <form onSubmit={onSubmit}>
+          <form onSubmit={(e) => void onSubmit(e)}>
             <div className="flex flex-col gap-4">
               <div className="flex flex-col gap-2">
                 <Label htmlFor="project-name">Project Name</Label>

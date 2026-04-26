@@ -174,7 +174,7 @@ export const createNodesSlice =
             !nextNodes.some((n) => n.id === selectedNodeId)
           ) {
             get().setSelectedNodeId(
-              nextNodes.length > 0 ? nextNodes[0].id : null,
+              nextNodes.length > 0 ? nextNodes[0]!.id : null,
             );
           }
 
@@ -248,7 +248,7 @@ export const createNodesSlice =
           };
 
           if (isBodyOrNeck) {
-            const existingNode = findPartNode(nodes, sourcePartType!);
+            const existingNode = findPartNode(nodes, sourcePartType);
             if (existingNode) {
               const confirmed = window.confirm(
                 `This project already has a ${sourcePartType}. Replace it with "${sourceAsset?.name ?? "selected asset"}"?`,

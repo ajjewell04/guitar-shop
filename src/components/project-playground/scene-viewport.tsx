@@ -116,12 +116,6 @@ export function SceneViewport({
   );
   const loadedNodeIds = useProjectPlaygroundStore((s) => s.loadedNodeIds);
   const assemblyWarnings = useProjectPlaygroundStore((s) => s.assemblyWarnings);
-  const neckDraftByNodeId = useProjectPlaygroundStore(
-    (s) => s.neckDraftByNodeId,
-  );
-  const headstockLoadByNodeId = useProjectPlaygroundStore(
-    (s) => s.headstockLoadByNodeId,
-  );
   const hideModelLoadBadge = useProjectPlaygroundStore(
     (s) => s.hideModelLoadBadge,
   );

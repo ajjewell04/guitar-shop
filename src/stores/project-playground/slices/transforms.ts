@@ -117,16 +117,18 @@ export const createTransformsSlice: StateCreator<
       pendingNodeTransforms.set(nodeId, transforms);
 
       if (saveTimer) clearTimeout(saveTimer);
-      saveTimer = setTimeout(async () => {
-        const pending = Array.from(pendingNodeTransforms.entries());
-        pendingNodeTransforms.clear();
-        try {
-          await Promise.all(
-            pending.map(([id, t]) => persistNodeTransforms(id, t)),
-          );
-        } catch {
-          /* best-effort */
-        }
+      saveTimer = setTimeout(() => {
+        void (async () => {
+          const pending = Array.from(pendingNodeTransforms.entries());
+          pendingNodeTransforms.clear();
+          try {
+            await Promise.all(
+              pending.map(([id, t]) => persistNodeTransforms(id, t)),
+            );
+          } catch {
+            /* best-effort */
+          }
+        })();
       }, 300);
     },
 

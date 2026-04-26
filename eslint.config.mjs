@@ -19,6 +19,7 @@ export default defineConfig([
     "**/.next/**",
     "**/node_modules/**",
     "**/public/**",
+    "**/.claude/**",
     ".gitignore",
     ".prettierignore",
     ".stylelintignore",
@@ -40,7 +41,28 @@ export default defineConfig([
     files: ["**/*.{js,mjs,cjs,ts,jsx,tsx}"],
     languageOptions: { globals: globals.browser },
   },
-  tseslint.configs.recommended,
+  ...tseslint.configs.recommendedTypeChecked.map((config) => ({
+    ...config,
+    files: ["**/*.{ts,tsx}"],
+  })),
+  {
+    files: ["**/*.{ts,tsx}"],
+    languageOptions: {
+      parserOptions: {
+        project: true,
+        tsconfigRootDir: import.meta.dirname,
+      },
+    },
+    rules: {
+      // Downgraded to warn until Supabase type generation is wired in.
+      // Once `createClient<Database>()` is set up, these disappear.
+      "@typescript-eslint/no-unsafe-assignment": "warn",
+      "@typescript-eslint/no-unsafe-call": "warn",
+      "@typescript-eslint/no-unsafe-member-access": "warn",
+      "@typescript-eslint/no-unsafe-argument": "warn",
+      "@typescript-eslint/no-unsafe-return": "warn",
+    },
+  },
   ...compat
     .extends("next/core-web-vitals", "next/typescript")
     .map((config) => ({
@@ -53,9 +75,9 @@ export default defineConfig([
     rules: {
       "no-unused-vars": "off",
       "@typescript-eslint/no-unused-vars": "off",
-      "unused-imports/no-unused-imports": "warn",
+      "unused-imports/no-unused-imports": "error",
       "unused-imports/no-unused-vars": [
-        "warn",
+        "error",
         {
           vars: "all",
           varsIgnorePattern: "^_",

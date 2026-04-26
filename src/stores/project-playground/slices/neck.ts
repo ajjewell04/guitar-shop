@@ -137,7 +137,7 @@ export const createNeckSlice: StateCreator<FullStore, [], [], NeckSlice> = (
   commitNeckNumberInput: (nodeId, key) => {
     const raw = get().neckInputDraftByNodeId[nodeId]?.[key];
     const current = get().neckDraftByNodeId[nodeId] ?? DEFAULT_NECK_PARAMS;
-    const currentValid = current[key] as number;
+    const currentValid = current[key];
 
     if (!raw || raw.trim() === "" || !Number.isFinite(Number(raw))) {
       get().setNeckNumberInput(nodeId, key, String(currentValid));
@@ -367,7 +367,8 @@ async function exportGroupToGlb(group: THREE.Group): Promise<File> {
         res instanceof ArrayBuffer
           ? resolve(res)
           : reject(new Error("GLB export failed")),
-      (err) => reject(err),
+      (err) =>
+        reject(err instanceof Error ? err : new Error("GLB export failed")),
       { binary: true },
     );
   });

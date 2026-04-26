@@ -147,7 +147,7 @@ export function NewAssetForm({
           <CardTitle>New Asset</CardTitle>
         </CardHeader>
         <CardContent>
-          <form onSubmit={onSubmit}>
+          <form onSubmit={(e) => void onSubmit(e)}>
             <div className="flex flex-col gap-4">
               <div className="flex flex-col gap-2">
                 <Label htmlFor="asset-name">Asset Name</Label>

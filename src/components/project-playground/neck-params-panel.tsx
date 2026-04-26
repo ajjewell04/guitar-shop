@@ -14,7 +14,11 @@ import {
   HEEL_NUMERIC_NECK_KEYS,
   ALIGNMENT_NUMERIC_NECK_KEYS,
 } from "@/stores/project-playground/constants";
-import { DEFAULT_NECK_PARAMS, normalizeNeckParams } from "@/lib/neck/params";
+import {
+  DEFAULT_NECK_PARAMS,
+  normalizeNeckParams,
+  type NeckParams,
+} from "@/lib/neck/params";
 import type { NumericNeckKey } from "@/stores/project-playground/types";
 import { TransformSection } from "./transform-section";
 
@@ -50,9 +54,6 @@ export function NeckParamsPanel({ getGroupForNode }: NeckParamsPanelProps) {
     (s) => s.commitNeckNumberInput,
   );
   const applyAndSaveNeck = useProjectPlaygroundStore((s) => s.applyAndSaveNeck);
-  const getHeadstockRenderState = useProjectPlaygroundStore(
-    (s) => s.getNeckParamsForNode,
-  );
 
   const selectedNode = useMemo(
     () => nodes.find((n) => n.id === selectedNodeId) ?? null,
@@ -72,9 +73,7 @@ export function NeckParamsPanel({ getGroupForNode }: NeckParamsPanelProps) {
     [headstockAssets],
   );
 
-  function resolveHeadstockRenderState(
-    params: ReturnType<typeof getHeadstockRenderState>,
-  ) {
+  function resolveHeadstockRenderState(params: NeckParams | null | undefined) {
     if (!params?.headstockAssetId)
       return {
         url: null as string | null,
@@ -118,7 +117,7 @@ export function NeckParamsPanel({ getGroupForNode }: NeckParamsPanelProps) {
           min={meta.min}
           max={meta.max}
           step={meta.step}
-          value={String(currentParams[key] as number)}
+          value={String(currentParams[key])}
           onChange={(e) => setNeckNumberInput(nodeId, key, e.target.value)}
           onKeyDown={(e) => {
             if (e.key === "Enter") {
