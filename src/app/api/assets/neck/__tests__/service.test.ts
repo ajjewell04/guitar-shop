@@ -1,9 +1,12 @@
 import { describe, it, expect, vi } from "vitest";
+import type { supabaseServer } from "@/lib/supabase/server";
 import {
   createNeckAsset,
   getNeckPresignUrls,
   saveNeckParams,
 } from "../service";
+
+type Db = Awaited<ReturnType<typeof supabaseServer>>;
 
 vi.mock("@/lib/supabase/server", () => ({ supabaseServer: vi.fn() }));
 vi.mock("@/lib/s3/client", () => ({
@@ -45,8 +48,11 @@ describe("getNeckPresignUrls", () => {
           makeChain({ data: null, error: { message: "not found" } }),
         ),
     };
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const result = await getNeckPresignUrls(db as any, userId, assetId);
+    const result = await getNeckPresignUrls(
+      db as unknown as Db,
+      userId,
+      assetId,
+    );
     expect(result.data).toBeNull();
     expect(result.error?.status).toBe(404);
   });
@@ -60,8 +66,11 @@ describe("getNeckPresignUrls", () => {
         }),
       ),
     };
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const result = await getNeckPresignUrls(db as any, userId, assetId);
+    const result = await getNeckPresignUrls(
+      db as unknown as Db,
+      userId,
+      assetId,
+    );
     expect(result.data).toBeNull();
     expect(result.error?.status).toBe(403);
   });
@@ -75,8 +84,11 @@ describe("getNeckPresignUrls", () => {
         }),
       ),
     };
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const result = await getNeckPresignUrls(db as any, userId, assetId);
+    const result = await getNeckPresignUrls(
+      db as unknown as Db,
+      userId,
+      assetId,
+    );
     expect(result.data).toBeNull();
     expect(result.error?.status).toBe(400);
   });
@@ -85,8 +97,7 @@ describe("getNeckPresignUrls", () => {
 describe("saveNeckParams", () => {
   it("returns 400 when neckParams has no headstockAssetId", async () => {
     const db = { from: vi.fn() };
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const result = await saveNeckParams(db as any, "user-1", {
+    const result = await saveNeckParams(db as unknown as Db, "user-1", {
       assetId: "asset-1",
       neckParams: {},
       modelObjectKey: "models/neck.glb",
@@ -115,8 +126,7 @@ describe("createNeckAsset", () => {
         .mockReturnValueOnce(linkChain),
     };
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const result = await createNeckAsset(db as any, userId, name);
+    const result = await createNeckAsset(db as unknown as Db, userId, name);
     expect(result.error).toBeNull();
     expect(result.data).toEqual({ assetId: "asset-1", assetFileId: "file-1" });
   });
@@ -128,8 +138,7 @@ describe("createNeckAsset", () => {
     });
     const db = { from: vi.fn().mockReturnValue(assetChain) };
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const result = await createNeckAsset(db as any, userId, name);
+    const result = await createNeckAsset(db as unknown as Db, userId, name);
     expect(result.data).toBeNull();
     expect(result.error?.status).toBe(400);
     expect(result.error?.message).toContain("insert failed");
@@ -151,8 +160,7 @@ describe("createNeckAsset", () => {
         .mockReturnValueOnce(deleteChain),
     };
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const result = await createNeckAsset(db as any, userId, name);
+    const result = await createNeckAsset(db as unknown as Db, userId, name);
     expect(result.data).toBeNull();
     expect(result.error?.status).toBe(400);
   });

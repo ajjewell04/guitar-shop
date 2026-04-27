@@ -2,6 +2,7 @@ import { supabaseServer } from "@/lib/supabase/server";
 import { S3_BUCKET } from "@/lib/s3/client";
 import { signPutObjectUrl } from "@/app/api/_shared/s3";
 import { normalizeNeckParams, DEFAULT_NECK_PARAMS } from "@/lib/neck/params";
+import type { Database } from "@/types/database.types";
 
 type Db = Awaited<ReturnType<typeof supabaseServer>>;
 
@@ -196,7 +197,7 @@ export async function saveNeckParams(
     existingId: string | null,
     fields: {
       object_key: string;
-      file_variant: string;
+      file_variant: Database["public"]["Enums"]["file_variant"];
       mime_type: string;
       bytes?: number;
     },

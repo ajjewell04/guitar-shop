@@ -31,6 +31,7 @@ export default defineConfig([
     "*.css",
     "*.scss",
     "lint-staged.config.js",
+    "src/types/database.types.ts",
   ]),
   {
     files: ["**/*.{js,mjs,cjs,ts,jsx,tsx}"],
@@ -54,8 +55,6 @@ export default defineConfig([
       },
     },
     rules: {
-      // Downgraded to warn until Supabase type generation is wired in.
-      // Once `createClient<Database>()` is set up, these disappear.
       "@typescript-eslint/no-unsafe-assignment": "warn",
       "@typescript-eslint/no-unsafe-call": "warn",
       "@typescript-eslint/no-unsafe-member-access": "warn",

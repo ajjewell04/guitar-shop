@@ -12,12 +12,7 @@ export async function getOwnedProject(
     .from("projects")
     .select("id, owner_id, root_node_id, preview_file_id")
     .eq("id", projectId)
-    .single<{
-      id: string;
-      owner_id: string;
-      root_node_id: string | null;
-      preview_file_id: string | null;
-    }>();
+    .single();
 
   if (error || !data) return { project: null, reason: "not_found" as const };
   if (data.owner_id !== userId)
@@ -26,9 +21,7 @@ export async function getOwnedProject(
 }
 
 export async function createProjectWithRoot(db: DbClient, name: string) {
-  return db
-    .rpc("create_project_with_root", { p_name: name })
-    .single<{ project_id: string; root_node_id: string }>();
+  return db.rpc("create_project_with_root", { p_name: name }).single();
 }
 
 export async function promoteProjectRoot(
@@ -40,7 +33,7 @@ export async function promoteProjectRoot(
       p_project_id: args.projectId,
       p_new_root_node_id: args.newRootNodeId,
     })
-    .single<{ project_id: string; root_node_id: string }>();
+    .single();
 }
 
 export async function assignRootAsset(

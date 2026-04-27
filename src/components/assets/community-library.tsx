@@ -19,7 +19,7 @@ type ApprovedAssetRow = {
   name: string;
   owner_id: string;
   part_type: string | null;
-  upload_date: string;
+  upload_date: string | null;
   upload_status: string | null;
   previewUrl: string | null;
   modelUrl: string | null;
@@ -211,8 +211,8 @@ export default function CommunityLibraryView({
     }
 
     rows.sort((a, b) => {
-      const ta = new Date(a.upload_date).getTime();
-      const tb = new Date(b.upload_date).getTime();
+      const ta = a.upload_date ? new Date(a.upload_date).getTime() : 0;
+      const tb = b.upload_date ? new Date(b.upload_date).getTime() : 0;
       return sort === "desc" ? ta - tb : tb - ta;
     });
 
@@ -284,7 +284,9 @@ export default function CommunityLibraryView({
                       </CardDescription>
                       <div className="mt-3 text-sm text-muted-foreground">
                         Uploaded on{" "}
-                        {new Date(asset.upload_date).toLocaleDateString()}
+                        {asset.upload_date
+                          ? new Date(asset.upload_date).toLocaleDateString()
+                          : "—"}
                       </div>
                     </div>
                   </div>

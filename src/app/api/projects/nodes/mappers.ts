@@ -3,6 +3,7 @@ import {
   signGetFileUrl,
   unwrapRelation,
 } from "@/app/api/_shared/s3";
+import type { Json } from "@/types/database.types";
 
 interface ProjectNode {
   id: string;
@@ -12,7 +13,7 @@ interface ProjectNode {
   sort_index: number;
   name: string;
   asset_id: string | null;
-  transforms?: Record<string, unknown>;
+  transforms?: Json;
   last_updated: string;
   asset?: {
     meta: object;
@@ -27,8 +28,8 @@ interface ProjectNode {
 interface LibraryAsset {
   id: string;
   name: string;
-  part_type: string;
-  upload_date: string;
+  part_type: string | null;
+  upload_date: string | null;
   model_file?: S3FileRef | S3FileRef[] | null;
   preview_file?: S3FileRef | S3FileRef[] | null;
 }

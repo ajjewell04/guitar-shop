@@ -1,4 +1,5 @@
 import { SupabaseClient } from "@supabase/supabase-js";
+import type { Database, Json } from "@/types/database.types";
 
 type Position = { x: number; y: number; z: number };
 type Rotation = { x: number; y: number; z: number };
@@ -9,7 +10,7 @@ type NodeTransformsPatch = {
 };
 
 export async function getOwnedProject(
-  supabase: SupabaseClient,
+  supabase: SupabaseClient<Database>,
   projectId: string,
   userId: string,
 ) {
@@ -27,7 +28,7 @@ export async function getOwnedProject(
 }
 
 export async function getOwnedAsset(
-  supabase: SupabaseClient,
+  supabase: SupabaseClient<Database>,
   assetId: string,
   userId: string,
 ) {
@@ -45,7 +46,7 @@ export async function getOwnedAsset(
 }
 
 export async function getNextSortIndex(
-  supabase: SupabaseClient,
+  supabase: SupabaseClient<Database>,
   projectId: string,
 ) {
   const { data, error } = await supabase
@@ -73,10 +74,16 @@ export function buildInitialTransforms(): {
 }
 
 export function mergeTransforms(
-  transforms: Record<string, unknown> | null,
+  transforms: Json | null,
   patch: NodeTransformsPatch,
 ) {
-  const next = { ...(transforms ?? {}) };
+  const base =
+    transforms !== null &&
+    typeof transforms === "object" &&
+    !Array.isArray(transforms)
+      ? (transforms as Record<string, unknown>)
+      : {};
+  const next = { ...base };
   if (patch.position !== undefined) next.position = patch.position;
   if (patch.rotation !== undefined) next.rotation = patch.rotation;
   if (patch.scale !== undefined) next.scale = patch.scale;

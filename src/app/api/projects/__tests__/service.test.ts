@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
+import type { supabaseServer } from "@/lib/supabase/server";
 import {
   getOwnedProject,
   createProjectWithRoot,
@@ -7,6 +8,8 @@ import {
   upsertProjectPreviewFile,
   attachProjectPreview,
 } from "../service";
+
+type DbClient = Awaited<ReturnType<typeof supabaseServer>>;
 
 vi.mock("@/lib/supabase/server", () => ({ supabaseServer: vi.fn() }));
 vi.mock("@/lib/s3/client", () => ({
@@ -37,7 +40,7 @@ function makeDb(result: { data: unknown; error: unknown }) {
   return {
     from: vi.fn().mockReturnValue(makeChain(result)),
     rpc: vi.fn().mockReturnValue(makeChain(result)),
-  };
+  } as unknown as DbClient;
 }
 
 describe("getOwnedProject", () => {
@@ -54,16 +57,14 @@ describe("getOwnedProject", () => {
       },
       error: null,
     });
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const result = await getOwnedProject(db as any, projectId, userId);
+    const result = await getOwnedProject(db, projectId, userId);
     expect(result.reason).toBeNull();
     expect(result.project).toBeDefined();
   });
 
   it("returns { project: null, reason: 'not_found' } when the query errors", async () => {
     const db = makeDb({ data: null, error: { message: "not found" } });
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const result = await getOwnedProject(db as any, projectId, userId);
+    const result = await getOwnedProject(db, projectId, userId);
     expect(result.reason).toBe("not_found");
     expect(result.project).toBeNull();
   });
@@ -78,8 +79,7 @@ describe("getOwnedProject", () => {
       },
       error: null,
     });
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const result = await getOwnedProject(db as any, projectId, userId);
+    const result = await getOwnedProject(db, projectId, userId);
     expect(result.reason).toBe("forbidden");
     expect(result.project).toBeNull();
   });
@@ -91,8 +91,7 @@ describe("createProjectWithRoot", () => {
       data: { project_id: "project-1", root_node_id: "node-1" },
       error: null,
     });
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const result = await createProjectWithRoot(db as any, "My Project");
+    const result = await createProjectWithRoot(db, "My Project");
     expect(result.data).toEqual({
       project_id: "project-1",
       root_node_id: "node-1",
@@ -107,8 +106,7 @@ describe("promoteProjectRoot", () => {
       data: { project_id: "project-1", root_node_id: "node-2" },
       error: null,
     });
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const result = await promoteProjectRoot(db as any, {
+    const result = await promoteProjectRoot(db, {
       projectId: "project-1",
       newRootNodeId: "node-2",
     });
@@ -122,10 +120,12 @@ describe("promoteProjectRoot", () => {
 
 describe("assignRootAsset", () => {
   it("calls db.from with 'project_nodes'", async () => {
-    const db = makeDb({ data: null, error: null });
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await assignRootAsset(db as any, "node-1", "asset-1");
-    expect(db.from).toHaveBeenCalledWith("project_nodes");
+    const fromFn = vi
+      .fn()
+      .mockReturnValue(makeChain({ data: null, error: null }));
+    const db = { from: fromFn, rpc: vi.fn() } as unknown as DbClient;
+    await assignRootAsset(db, "node-1", "asset-1");
+    expect(fromFn).toHaveBeenCalledWith("project_nodes");
   });
 });
 
@@ -148,8 +148,7 @@ describe("upsertProjectPreviewFile", () => {
       },
       error: null,
     });
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const result = await upsertProjectPreviewFile(db as any, {
+    const result = await upsertProjectPreviewFile(db, {
       ...baseArgs,
       existingPreviewFileId: "file-1",
     });
@@ -167,8 +166,7 @@ describe("upsertProjectPreviewFile", () => {
       },
       error: null,
     });
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const result = await upsertProjectPreviewFile(db as any, {
+    const result = await upsertProjectPreviewFile(db, {
       ...baseArgs,
       existingPreviewFileId: null,
     });
@@ -179,14 +177,16 @@ describe("upsertProjectPreviewFile", () => {
 
 describe("attachProjectPreview", () => {
   it("calls db.from with 'projects'", async () => {
-    const db = makeDb({ data: null, error: null });
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await attachProjectPreview(db as any, {
+    const fromFn = vi
+      .fn()
+      .mockReturnValue(makeChain({ data: null, error: null }));
+    const db = { from: fromFn, rpc: vi.fn() } as unknown as DbClient;
+    await attachProjectPreview(db, {
       projectId: "project-1",
       userId: "user-1",
       fileId: "file-1",
       nowIso: "2024-01-01T00:00:00.000Z",
     });
-    expect(db.from).toHaveBeenCalledWith("projects");
+    expect(fromFn).toHaveBeenCalledWith("projects");
   });
 });

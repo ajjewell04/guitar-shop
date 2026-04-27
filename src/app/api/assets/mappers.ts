@@ -9,7 +9,7 @@ type AssetListRow = {
   name: string;
   owner_id: string;
   part_type: string | null;
-  upload_date: string;
+  upload_date: string | null;
   upload_status: string | null;
   preview_file?: S3FileRef | S3FileRef[] | null;
   model_file?: S3FileRef | S3FileRef[] | null;

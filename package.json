@@ -15,7 +15,9 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "prepare": "husky",
-    "knip": "knip"
+    "knip": "knip",
+    "db:pull": "supabase db pull",
+    "db:types": "supabase gen types typescript --linked --output-path src/types/database.types.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.975.0",
@@ -68,6 +70,7 @@
     "prettier": "^3.5.3",
     "stylelint": "^16.19.1",
     "stylelint-config-standard": "^38.0.0",
+    "supabase": "^2.95.3",
     "tailwindcss": "^4.1.18",
     "three-stdlib": "^2.36.1",
     "typescript": "^5.8.3",

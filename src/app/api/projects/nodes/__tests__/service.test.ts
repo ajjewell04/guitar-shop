@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/types/database.types";
 import {
   getOwnedProject,
   getOwnedAsset,
@@ -30,7 +31,7 @@ function makeChain(result: { data: unknown; error: unknown }) {
 function makeDb(result: { data: unknown; error: unknown }) {
   return {
     from: vi.fn().mockReturnValue(makeChain(result)),
-  } as unknown as SupabaseClient;
+  } as unknown as SupabaseClient<Database>;
 }
 
 describe("getOwnedProject (nodes service)", () => {

@@ -351,7 +351,7 @@ export async function PATCH(req: Request) {
     }
   }
 
-  let nextAssetId = node.asset_id as string | null;
+  let nextAssetId = node.asset_id;
   let nextName: string | null = null;
   if (assetId !== undefined) {
     const { asset, reason: assetReason } = await getOwnedAsset(
