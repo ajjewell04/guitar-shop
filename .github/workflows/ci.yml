@@ -6,6 +6,21 @@ on:
   pull_request:
 
 jobs:
+  db-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Start local Supabase stack
+        run: supabase start
+
+      - name: Run pgTAP database tests
+        run: supabase test db
+
   ci:
     runs-on: ubuntu-latest
     env:

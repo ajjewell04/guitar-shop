@@ -19,7 +19,8 @@
     "db:new": "supabase migration new",
     "db:push": "supabase db push",
     "db:pull": "supabase db pull",
-    "db:types": "supabase gen types typescript --linked --output-path src/types/database.types.ts"
+    "db:types": "supabase gen types typescript --linked --output-path src/types/database.types.ts",
+    "db:test": "supabase test db"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.975.0",

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Core Behavior
 
-Always gather all available context before acting. If context is missing or ambiguous, do not assume — ask clarifying questions to fill the gap before proceeding.
+Always gather all relevant context before acting. If context is missing or ambiguous, do not assume — ask clarifying questions to fill the gap before proceeding.
 
 ## Commands
 
