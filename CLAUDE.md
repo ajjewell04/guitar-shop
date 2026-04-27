@@ -19,7 +19,22 @@ npm run test          # run all tests once (vitest run)
 npm run test:watch    # run tests in watch mode
 npm run test:coverage # run tests with coverage report
 npx vitest run src/path/to/file.test.ts  # run a single test file
+npm run db:new        # scaffold a new migration file: npm run db:new -- <name>
+npm run db:push       # apply local migrations to remote
+npm run db:pull       # pull remote schema → supabase/migrations/ (avoid — prefer db:new + db:push)
+npm run db:types      # regenerate src/types/database.types.ts from remote schema
 ```
+
+**Migration workflow** (local-first): write migrations locally → push to remote → regenerate types.
+
+```bash
+npm run db:new -- add_some_feature   # creates supabase/migrations/<timestamp>_add_some_feature.sql
+# edit the generated file, then:
+npm run db:push                      # applies it to the remote DB
+npm run db:types                     # regenerates src/types/database.types.ts
+```
+
+Never use `db:pull` to capture dashboard changes — write migrations locally instead.
 
 **Pre-commit hook** (lint-staged): on every commit, `eslint --fix` runs on staged JS/TS files and `prettier --write` runs on all staged files. ESLint errors that are not auto-fixable will block the commit.
 
@@ -68,6 +83,12 @@ Key tables: `assets`, `asset_files`, `projects`, `project_nodes`.
 - An `asset` represents a guitar part. It has one or more `asset_files` (variants: `original`, `preview`).
 - A `project` has many `project_nodes`, each referencing an `asset` with a `transforms` JSON column `{ position, rotation, scale }`.
 - `assets.meta` is a freeform JSON column used for parametric neck params (`meta.neck`), mounting data (`meta.mounting`), and provenance (`meta.source`).
+
+**Migrations**: `supabase/migrations/` holds the canonical schema DDL. Run `npm run db:pull` after any schema change in the Supabase dashboard to capture it as a new migration file.
+
+**Generated types**: `src/types/database.types.ts` is fully generated — never edit it manually. Run `npm run db:types` after schema changes. It is excluded from ESLint. The `Database` type it exports is wired into all three Supabase client factories (`supabaseServer`, `supabaseBrowser`, `updateSession`), so `.from()` calls, insert/update payloads, and RPC calls are all schema-typed.
+
+Key enums from the generated schema: `file_variant` (`"original" | "optimized" | "preview"`), `part_type` (`"body" | "neck" | "headstock" | ...`), `upload_status` (`"approved" | "rejected" | "pending"`), `node_type` (`"assembly" | "part"`). Use `Database["public"]["Enums"]["<name>"]` to reference them in service/mapper types.
 
 ### S3 Credentials
 
@@ -134,6 +155,10 @@ vi.mock("@/app/api/_shared/s3", () => ({
 **Supabase mock chain pattern** for service tests (supports fluent `.from().select().eq().single()` chains):
 
 ```ts
+import type { supabaseServer } from "@/lib/supabase/server";
+
+type Db = Awaited<ReturnType<typeof supabaseServer>>;
+
 function makeChain(result: { data: unknown; error: unknown }) {
   const chain: Record<string, unknown> = {
     single: vi.fn().mockResolvedValue(result),
@@ -157,9 +182,11 @@ function makeDb(result: { data: unknown; error: unknown }) {
   return {
     from: vi.fn().mockReturnValue(makeChain(result)),
     rpc: vi.fn().mockReturnValue(makeChain(result)),
-  };
+  } as unknown as Db;
 }
 ```
+
+For services that accept `SupabaseClient<Database>` directly (e.g. `nodes/service.ts`), cast with `as unknown as SupabaseClient<Database>` and import `Database` from `@/types/database.types`.
 
 When a service function makes multiple sequential DB calls, use `.mockReturnValueOnce()` for each call in order.
 
@@ -193,7 +220,7 @@ const result = await getOwnedProject(db as any, id, userId);
 
 // correct — cast once in makeDb, clean call sites
 function makeDb(result) {
-  return { from: vi.fn()... } as unknown as SupabaseClient;
+  return { from: vi.fn()... } as unknown as Db; // Db = Awaited<ReturnType<typeof supabaseServer>>
 }
 const result = await getOwnedProject(db, id, userId);
 ```
@@ -202,7 +229,7 @@ const result = await getOwnedProject(db, id, userId);
 
 **`prettier/prettier` (error, auto-fixable)** — Formatting is enforced as an error but is always auto-fixed by the pre-commit hook and by `npm run format`. Run `npm run format` before committing if the hook is failing on formatting alone.
 
-**`@typescript-eslint/no-unsafe-argument` (warning)** — Downgraded until Supabase type generation is wired in. Does not block commits.
+**`@typescript-eslint/no-unsafe-*` (warning)** — The five `no-unsafe-*` rules are downgraded to warnings. Supabase client calls are now fully typed via `<Database>`, but fetch utilities, stores, and preview client still use `any` at response boundaries. Do not suppress these warnings in new code — fix the root cause instead.
 
 ## Git
 

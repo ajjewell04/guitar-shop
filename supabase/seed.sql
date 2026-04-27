@@ -1,0 +1,2 @@
+-- seed.sql
+-- Add local development seed data here.

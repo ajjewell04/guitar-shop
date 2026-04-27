@@ -16,6 +16,8 @@
     "test:coverage": "vitest run --coverage",
     "prepare": "husky",
     "knip": "knip",
+    "db:new": "supabase migration new",
+    "db:push": "supabase db push",
     "db:pull": "supabase db pull",
     "db:types": "supabase gen types typescript --linked --output-path src/types/database.types.ts"
   },
