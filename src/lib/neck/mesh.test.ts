@@ -51,4 +51,16 @@ describe("buildProceduralNeckMesh", () => {
       getNeckNutAnchorXmm(DEFAULT_NECK_PARAMS),
     );
   });
+
+  it("builds without throwing when tiltbackAngleDeg is non-zero", () => {
+    const params = { ...DEFAULT_NECK_PARAMS, tiltbackAngleDeg: 10 };
+    const group = buildProceduralNeckMesh(params);
+    expect(group.children).toHaveLength(4);
+  });
+
+  it("builds without throwing when heelType is sculpted", () => {
+    const params = { ...DEFAULT_NECK_PARAMS, heelType: "sculpted" as const };
+    const group = buildProceduralNeckMesh(params);
+    expect(group.children).toHaveLength(4);
+  });
 });

@@ -42,6 +42,10 @@ describe("normalizeNeckParams", () => {
     });
     expect(result.fingerboardRadiusEndIn).toBe(14);
   });
+
+  it("throws when called with an array (not a plain object)", () => {
+    expect(() => normalizeNeckParams([])).toThrow();
+  });
 });
 
 describe("NeckParamsSchema", () => {

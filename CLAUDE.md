@@ -9,15 +9,19 @@ Always gather all available context before acting. If context is missing or ambi
 ## Commands
 
 ```bash
-npm run dev          # start dev server (Next.js + Turbopack)
-npm run build        # lint/stylecheck, then next build
-npm run check        # stylelint + eslint only
-npm run lint         # eslint only
-npm run lint:styles  # stylelint only
-npm run format       # prettier --write
-npx vitest run       # run all tests (Node.js only — no DOM)
+npm run dev           # start dev server (Next.js + Turbopack)
+npm run build         # lint/stylecheck, then next build
+npm run check         # stylelint + eslint only (no fix)
+npm run lint          # eslint only (no fix)
+npm run lint:styles   # stylelint only
+npm run format        # prettier --write (entire project)
+npm run test          # run all tests once (vitest run)
+npm run test:watch    # run tests in watch mode
+npm run test:coverage # run tests with coverage report
 npx vitest run src/path/to/file.test.ts  # run a single test file
 ```
+
+**Pre-commit hook** (lint-staged): on every commit, `eslint --fix` runs on staged JS/TS files and `prettier --write` runs on all staged files. ESLint errors that are not auto-fixable will block the commit.
 
 ## Architecture
 
@@ -33,22 +37,26 @@ Fetch data in server components and pass it as props. TanStack Query is scoped t
 
 ### Auth & Session
 
-Middleware at `src/middleware.ts` → `src/lib/middleware.ts` refreshes Supabase sessions on every request and redirects unauthenticated users to `/auth/login`.
+Middleware at `src/middleware.ts` → `src/lib/supabase/middleware.ts` refreshes Supabase sessions on every request and redirects unauthenticated users to `/auth/login`.
 
-Always use `supabaseServer()` from `src/lib/supabase.ts` as the single Supabase client factory. (`src/lib/server.ts` is a duplicate that should be removed.)
+Always use `supabaseServer()` from `src/lib/supabase/server.ts` as the single server-side Supabase client factory.
 
 API routes authenticate via `requireUser(supabase)` from `src/app/api/_shared/auth.ts`. It returns `{ supabase, user }` on success or a `Response` (401) on failure — always guard with `instanceof Response`.
 
 ### API Route Structure
 
-Each resource follows a flat three-file layout — no `handlers/` subdirectory:
+Each resource follows a flat layout with a `__tests__/` subdirectory for tests:
 
 ```
 src/app/api/<resource>/
-  route.ts    — HTTP boundary only: authenticate, parse DTO, call service, return response
-  dto.ts      — Zod schemas for all request/response shapes
-  service.ts  — all business logic, DB queries, and S3 operations
-  mappers.ts  — row → response shape (signs S3 URLs, etc.) — only when needed
+  route.ts       — HTTP boundary only: authenticate, parse DTO, call service, return response
+  dto.ts         — Zod schemas for all request/response shapes
+  service.ts     — all business logic, DB queries, and S3 operations
+  mappers.ts     — row → response shape (signs S3 URLs, etc.) — only when needed
+  __tests__/
+    dto.test.ts
+    service.test.ts
+    mappers.test.ts
 ```
 
 `route.ts` must not contain DB queries or S3 calls directly. Shared HTTP helpers (`jsonOk`, `jsonError`) live in `src/app/api/_shared/http.ts`. Shared S3 helpers (`signGetFileUrl`, `signPutObjectUrl`, `deleteObjectsByBucket`) live in `src/app/api/_shared/s3.ts`.
@@ -63,7 +71,7 @@ Key tables: `assets`, `asset_files`, `projects`, `project_nodes`.
 
 ### S3 Credentials
 
-`src/lib/s3.ts` switches credential strategy at runtime:
+`src/lib/s3/client.ts` switches credential strategy at runtime:
 
 - **Vercel** (`VERCEL=1`): OIDC via `AWS_ROLE_ARN`
 - **Local**: `~/.aws` profiles via `AWS_PROFILE` env var
@@ -72,7 +80,7 @@ Required env vars: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE
 
 ### Procedural Neck
 
-`src/lib/procedural-neck.ts` generates a fully parametric guitar neck as Three.js `BufferGeometry` (core, fretboard, nut, frets). Parameters are defined and validated by `NeckParamsSchema` in `src/lib/neck-params.ts`. The exported `buildProceduralNeckMesh(params)` returns a `THREE.Group`. The React wrapper is `src/components/project-playground/procedural-neck-mesh.tsx`.
+`src/lib/neck/mesh.ts` generates a fully parametric guitar neck as Three.js `BufferGeometry` (core, fretboard, nut, frets). Parameters are defined and validated by `NeckParamsSchema` in `src/lib/neck/params.ts`. The exported `buildProceduralNeckMesh(params)` returns a `THREE.Group`. The React wrapper is `src/components/project-playground/procedural-neck-mesh.tsx`.
 
 Parametric necks are stored in Supabase with `upload_status: null` and no S3 object key — the mesh is generated client-side from `assets.meta.neck` on load.
 
@@ -86,11 +94,115 @@ New projects are created via a strategy pattern in `src/components/projects/new-
 
 ### Preview Generation
 
-Project thumbnails are rendered client-side: Three.js scene → offscreen canvas → PNG blob → presign (`/api/projects/preview/presign`) → PUT to S3 → finalize (`/api/projects/preview`). Client helpers live in `src/lib/project-preview-client.ts`; the render logic is in `src/lib/project-preview.ts` (dynamically imported to keep it out of the initial bundle).
+Project thumbnails are rendered client-side: Three.js scene → offscreen canvas → PNG blob → presign (`/api/projects/preview/presign`) → PUT to S3 → finalize (`/api/projects/preview`). Client helpers live in `src/lib/preview/project-client.ts`; the render logic is in `src/lib/preview/project.ts` (dynamically imported to keep it out of the initial bundle).
 
 ## Testing
 
-Vitest is scoped to **Node.js only** — no DOM or browser environment. Test targets are service functions, lib utilities, mappers, and DTO schemas. Co-locate test files next to the code they test (`foo.test.ts` beside `foo.ts`).
+Vitest runs in **Node.js only** — no DOM or browser environment. Tests cover service functions, lib utilities, mappers, and DTO schemas. Preview and WebGL-dependent code cannot be tested in this environment.
+
+### File structure
+
+- **`src/lib/` and `src/stores/`**: co-locate test files next to the source (`foo.test.ts` beside `foo.ts`).
+- **`src/app/api/`**: use a `__tests__/` subdirectory per resource folder. This prevents the source files from being overwhelmed when a resource has dto, service, and mapper tests.
+
+### Mocking patterns
+
+**`vi.mock` calls must be at module level** (outside `describe`/`it`) — Vitest hoists them before any imports execute.
+
+Mock `@/lib/s3/client` and `@/lib/supabase/server` in every service test to avoid real AWS/Supabase calls:
+
+```ts
+vi.mock("@/lib/supabase/server", () => ({ supabaseServer: vi.fn() }));
+vi.mock("@/lib/s3/client", () => ({
+  s3Client: { send: vi.fn().mockResolvedValue({}) },
+  S3_BUCKET: "test-bucket",
+}));
+```
+
+Mock `@/app/api/_shared/s3` in mapper tests to stub `signGetFileUrl` while keeping `unwrapRelation` pure:
+
+```ts
+vi.mock("@/app/api/_shared/s3", () => ({
+  unwrapRelation: <T>(v: T | T[] | null | undefined): T | null => {
+    if (!v) return null;
+    return Array.isArray(v) ? (v[0] ?? null) : v;
+  },
+  signGetFileUrl: vi.fn(),
+}));
+```
+
+**Supabase mock chain pattern** for service tests (supports fluent `.from().select().eq().single()` chains):
+
+```ts
+function makeChain(result: { data: unknown; error: unknown }) {
+  const chain: Record<string, unknown> = {
+    single: vi.fn().mockResolvedValue(result),
+    maybeSingle: vi.fn().mockResolvedValue(result),
+  };
+  for (const m of [
+    "select",
+    "eq",
+    "insert",
+    "update",
+    "delete",
+    "order",
+    "limit",
+  ]) {
+    chain[m] = vi.fn().mockReturnValue(chain);
+  }
+  return chain;
+}
+
+function makeDb(result: { data: unknown; error: unknown }) {
+  return {
+    from: vi.fn().mockReturnValue(makeChain(result)),
+    rpc: vi.fn().mockReturnValue(makeChain(result)),
+  };
+}
+```
+
+When a service function makes multiple sequential DB calls, use `.mockReturnValueOnce()` for each call in order.
+
+**Clear mock state between tests** with `vi.clearAllMocks()` in `beforeEach` whenever a mock is shared across multiple tests in a `describe` block — otherwise call counts accumulate.
+
+## Linting & Formatting
+
+ESLint runs `typescript-eslint/recommendedTypeChecked` plus Prettier as an error. The pre-commit hook auto-fixes formatting, but logic errors block the commit. Write code that passes lint from the start to avoid pre-commit failures.
+
+### Rules that commonly bite in test files
+
+**`@typescript-eslint/require-await` (error)** — An `async` function must contain at least one `await`. Mock helper functions that return promises should use `Promise.resolve()` instead of `async`:
+
+```ts
+// wrong — triggers require-await
+const makeSupabase = () => ({
+  auth: { getUser: async () => ({ data: null }) },
+});
+
+// correct
+const makeSupabase = () => ({
+  auth: { getUser: () => Promise.resolve({ data: null }) },
+});
+```
+
+**`@typescript-eslint/no-explicit-any` (error)** — Never use `any`. For mock objects that need to satisfy a concrete type, cast at the factory level with `as unknown as TargetType` rather than at each call site:
+
+```ts
+// wrong — repeated as any at every call site
+const result = await getOwnedProject(db as any, id, userId);
+
+// correct — cast once in makeDb, clean call sites
+function makeDb(result) {
+  return { from: vi.fn()... } as unknown as SupabaseClient;
+}
+const result = await getOwnedProject(db, id, userId);
+```
+
+**`unused-imports/no-unused-imports` (error)** — Every import must be used. Remove imports when the value they provide is no longer referenced. Type-only imports (`import type`) are subject to the same rule.
+
+**`prettier/prettier` (error, auto-fixable)** — Formatting is enforced as an error but is always auto-fixed by the pre-commit hook and by `npm run format`. Run `npm run format` before committing if the hook is failing on formatting alone.
+
+**`@typescript-eslint/no-unsafe-argument` (warning)** — Downgraded until Supabase type generation is wired in. Does not block commits.
 
 ## Git
 
@@ -102,5 +214,5 @@ Never run `git add`, `git commit`, or any command that modifies git state. The u
 - `cn()` from `src/lib/utils.ts` for class merging
 - `"use client"` only at the smallest necessary boundary — never at page level
 - Shared UI primitives in `src/components/ui/`; reusable non-UI logic in `src/lib/`
-- Avoid `any` — use `unknown` and narrow explicitly
+- Avoid `any` — use `unknown` and narrow explicitly, or `as unknown as ConcreteType` for unavoidable mock casts
 - Catch errors as `unknown` and narrow before use

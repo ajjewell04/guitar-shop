@@ -1,9 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import { unwrapRelation, signGetFileUrl, signPutObjectUrl } from "../s3";
+import { s3Client } from "@/lib/s3/client";
+import {
+  unwrapRelation,
+  signGetFileUrl,
+  signPutObjectUrl,
+  deleteObjectsByBucket,
+} from "../s3";
 
 vi.mock("@/lib/s3/client", () => ({
-  s3Client: {},
+  s3Client: { send: vi.fn().mockResolvedValue({}) },
   S3_BUCKET: "test-bucket",
 }));
 
@@ -11,10 +17,15 @@ vi.mock("@aws-sdk/s3-request-presigner", () => ({
   getSignedUrl: vi.fn().mockResolvedValue("https://signed.example.com/object"),
 }));
 
+// Cast to a plain-property type so the unbound-method rule does not fire.
+const s3Send = (s3Client as unknown as { send: ReturnType<typeof vi.fn> }).send;
+
 beforeEach(() => {
+  vi.clearAllMocks();
   vi.mocked(getSignedUrl).mockResolvedValue(
     "https://signed.example.com/object",
   );
+  s3Send.mockResolvedValue({});
 });
 
 describe("unwrapRelation", () => {
@@ -75,6 +86,39 @@ describe("signGetFileUrl", () => {
       expect.anything(),
       { expiresIn: 300 },
     );
+  });
+});
+
+describe("deleteObjectsByBucket", () => {
+  it("does not call s3Client.send when all files have null object_key", async () => {
+    await deleteObjectsByBucket([
+      { bucket: "my-bucket", object_key: null },
+      { bucket: "my-bucket", object_key: null },
+    ]);
+    expect(s3Send).not.toHaveBeenCalled();
+  });
+
+  it("calls s3Client.send once for a batch of files in the same bucket", async () => {
+    await deleteObjectsByBucket([
+      { bucket: "my-bucket", object_key: "models/a.glb" },
+      { bucket: "my-bucket", object_key: "models/b.glb" },
+    ]);
+    expect(s3Send).toHaveBeenCalledTimes(1);
+  });
+
+  it("falls back to S3_BUCKET when bucket is null", async () => {
+    await deleteObjectsByBucket([{ bucket: null, object_key: "models/a.glb" }]);
+    expect(s3Send).toHaveBeenCalledTimes(1);
+    const cmd = s3Send.mock.calls[0]?.[0] as { input: { Bucket: string } };
+    expect(cmd.input.Bucket).toBe("test-bucket");
+  });
+
+  it("calls s3Client.send separately for files in different buckets", async () => {
+    await deleteObjectsByBucket([
+      { bucket: "bucket-a", object_key: "models/a.glb" },
+      { bucket: "bucket-b", object_key: "models/b.glb" },
+    ]);
+    expect(s3Send).toHaveBeenCalledTimes(2);
   });
 });
 

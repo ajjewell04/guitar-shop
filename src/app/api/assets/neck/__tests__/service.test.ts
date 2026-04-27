@@ -1,5 +1,9 @@
 import { describe, it, expect, vi } from "vitest";
-import { createNeckAsset } from "../service";
+import {
+  createNeckAsset,
+  getNeckPresignUrls,
+  saveNeckParams,
+} from "../service";
 
 vi.mock("@/lib/supabase/server", () => ({ supabaseServer: vi.fn() }));
 vi.mock("@/lib/s3/client", () => ({
@@ -28,6 +32,71 @@ function makeChain(result: { data: unknown; error: unknown }) {
   }
   return chain;
 }
+
+describe("getNeckPresignUrls", () => {
+  const userId = "user-1";
+  const assetId = "asset-1";
+
+  it("returns 404 when the asset is not found", async () => {
+    const db = {
+      from: vi
+        .fn()
+        .mockReturnValue(
+          makeChain({ data: null, error: { message: "not found" } }),
+        ),
+    };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const result = await getNeckPresignUrls(db as any, userId, assetId);
+    expect(result.data).toBeNull();
+    expect(result.error?.status).toBe(404);
+  });
+
+  it("returns 403 when another user owns the asset", async () => {
+    const db = {
+      from: vi.fn().mockReturnValue(
+        makeChain({
+          data: { id: assetId, owner_id: "other-user", part_type: "neck" },
+          error: null,
+        }),
+      ),
+    };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const result = await getNeckPresignUrls(db as any, userId, assetId);
+    expect(result.data).toBeNull();
+    expect(result.error?.status).toBe(403);
+  });
+
+  it("returns 400 when the asset part_type is not 'neck'", async () => {
+    const db = {
+      from: vi.fn().mockReturnValue(
+        makeChain({
+          data: { id: assetId, owner_id: userId, part_type: "body" },
+          error: null,
+        }),
+      ),
+    };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const result = await getNeckPresignUrls(db as any, userId, assetId);
+    expect(result.data).toBeNull();
+    expect(result.error?.status).toBe(400);
+  });
+});
+
+describe("saveNeckParams", () => {
+  it("returns 400 when neckParams has no headstockAssetId", async () => {
+    const db = { from: vi.fn() };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const result = await saveNeckParams(db as any, "user-1", {
+      assetId: "asset-1",
+      neckParams: {},
+      modelObjectKey: "models/neck.glb",
+      previewObjectKey: "previews/neck.png",
+    });
+    expect(result.error?.status).toBe(400);
+    expect(result.error?.message).toContain("headstockAssetId");
+    expect(db.from).not.toHaveBeenCalled();
+  });
+});
 
 describe("createNeckAsset", () => {
   const userId = "user-1";

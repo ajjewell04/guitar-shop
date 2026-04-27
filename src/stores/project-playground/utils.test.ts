@@ -1,12 +1,16 @@
 import { describe, it, expect } from "vitest";
+import * as THREE from "three";
 import {
   clampRotation,
   clampScale,
+  isObjectInSceneGraph,
   normalizeNodeTransforms,
   toTransformInputDraft,
+  toNumericInputDraft,
   updateTransformsByInputKey,
   neckParamsToHeadstockTransforms,
   headstockTransformsToNeckPatch,
+  clampHeadstockTransforms,
 } from "@/stores/project-playground/utils";
 import {
   ROTATION_MIN,
@@ -14,8 +18,36 @@ import {
   SCALE_MIN,
   SCALE_MAX,
   DEFAULT_NODE_TRANSFORMS,
+  NUMERIC_NECK_KEYS,
 } from "@/stores/project-playground/constants";
 import { DEFAULT_NECK_PARAMS } from "@/lib/neck/params";
+
+describe("isObjectInSceneGraph", () => {
+  it("returns false for null", () => {
+    expect(isObjectInSceneGraph(null)).toBe(false);
+  });
+
+  it("returns false for a detached Object3D with no parent", () => {
+    const obj = new THREE.Mesh();
+    expect(isObjectInSceneGraph(obj)).toBe(false);
+  });
+
+  it("returns true when the object is added to a Scene", () => {
+    const scene = new THREE.Scene();
+    const obj = new THREE.Mesh();
+    scene.add(obj);
+    expect(isObjectInSceneGraph(obj)).toBe(true);
+  });
+
+  it("returns true for a deeply nested object whose ancestor is a Scene", () => {
+    const scene = new THREE.Scene();
+    const parent = new THREE.Group();
+    const child = new THREE.Mesh();
+    scene.add(parent);
+    parent.add(child);
+    expect(isObjectInSceneGraph(child)).toBe(true);
+  });
+});
 
 describe("clampRotation", () => {
   it("clamps below ROTATION_MIN to ROTATION_MIN", () => {
@@ -90,6 +122,21 @@ describe("toTransformInputDraft", () => {
   });
 });
 
+describe("toNumericInputDraft", () => {
+  it("converts all NeckParams numeric values to strings", () => {
+    const draft = toNumericInputDraft(DEFAULT_NECK_PARAMS);
+    expect(Object.keys(draft)).toHaveLength(NUMERIC_NECK_KEYS.length);
+    for (const key of NUMERIC_NECK_KEYS) {
+      expect(typeof draft[key]).toBe("string");
+    }
+  });
+
+  it("preserves the default scaleLengthIn value as a string", () => {
+    const draft = toNumericInputDraft(DEFAULT_NECK_PARAMS);
+    expect(draft.scaleLengthIn).toBe(String(DEFAULT_NECK_PARAMS.scaleLengthIn));
+  });
+});
+
 describe("updateTransformsByInputKey", () => {
   const base = DEFAULT_NODE_TRANSFORMS;
 
@@ -110,6 +157,17 @@ describe("updateTransformsByInputKey", () => {
     expect(result.rotation.x).toBe(ROTATION_MAX);
   });
 
+  it("clamps rotation to ROTATION_MIN when key is rotationY", () => {
+    const result = updateTransformsByInputKey(base, "rotationY", -400);
+    expect(result.rotation.y).toBe(ROTATION_MIN);
+  });
+
+  it("clamps rotation when key is rotationZ", () => {
+    expect(updateTransformsByInputKey(base, "rotationZ", 400).rotation.z).toBe(
+      ROTATION_MAX,
+    );
+  });
+
   it("clamps scale to SCALE_MAX when key is scale", () => {
     const result = updateTransformsByInputKey(base, "scale", 15);
     expect(result.scale).toBe(SCALE_MAX);
@@ -122,6 +180,39 @@ describe("neckParamsToHeadstockTransforms", () => {
     expect(transforms.position).toEqual({ x: 0, y: 0, z: 0 });
     expect(transforms.rotation).toEqual({ x: 0, y: 0, z: 0 });
     expect(transforms.scale).toBe(1);
+  });
+});
+
+describe("clampHeadstockTransforms", () => {
+  it("passes through in-range values unchanged", () => {
+    const transforms = {
+      position: { x: 10, y: -5, z: 3 },
+      rotation: { x: 0, y: 0, z: 0 },
+      scale: 1,
+    };
+    const result = clampHeadstockTransforms(transforms);
+    expect(result.position.x).toBe(10);
+    expect(result.position.y).toBe(-5);
+    expect(result.scale).toBe(1);
+  });
+
+  it("clamps headstock offsets to their bounds", () => {
+    const transforms = {
+      position: { x: 600, y: -600, z: 0 },
+      rotation: { x: 0, y: 0, z: 0 },
+      scale: 1,
+    };
+    const result = clampHeadstockTransforms(transforms);
+    expect(result.position.x).toBe(500);
+    expect(result.position.y).toBe(-500);
+  });
+
+  it("clamps headstock scale to its bounds", () => {
+    const transforms = {
+      ...DEFAULT_NODE_TRANSFORMS,
+      scale: 20,
+    };
+    expect(clampHeadstockTransforms(transforms).scale).toBe(10);
   });
 });
 

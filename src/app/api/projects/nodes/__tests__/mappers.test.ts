@@ -71,6 +71,15 @@ describe("mapNodeRow", () => {
     expect(result.asset).toBeNull();
   });
 
+  it("defaults meta to {} when asset.meta is null", async () => {
+    const result = await mapNodeRow({
+      ...baseNode,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      asset: { ...baseNode.asset, meta: null as any },
+    });
+    expect(result.asset!.meta).toEqual({});
+  });
+
   it("maps nested asset fields when asset is present", async () => {
     const result = await mapNodeRow(baseNode);
     expect(result.asset).not.toBeNull();

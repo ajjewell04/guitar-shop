@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   getOwnedProject,
   getOwnedAsset,
+  getNextSortIndex,
   buildInitialTransforms,
   mergeTransforms,
 } from "../service";
@@ -92,6 +93,31 @@ describe("getOwnedAsset (nodes service)", () => {
   });
 });
 
+describe("getNextSortIndex", () => {
+  const projectId = "project-1";
+
+  it("returns { nextSortIndex: null, error } when the query errors", async () => {
+    const db = makeDb({ data: null, error: { message: "db error" } });
+    const result = await getNextSortIndex(db, projectId);
+    expect(result.nextSortIndex).toBeNull();
+    expect(result.error).toBeDefined();
+  });
+
+  it("returns nextSortIndex of 0 when the table is empty (data is null)", async () => {
+    const db = makeDb({ data: null, error: null });
+    const result = await getNextSortIndex(db, projectId);
+    expect(result.nextSortIndex).toBe(0);
+    expect(result.error).toBeNull();
+  });
+
+  it("returns nextSortIndex as sort_index + 1", async () => {
+    const db = makeDb({ data: { sort_index: 4 }, error: null });
+    const result = await getNextSortIndex(db, projectId);
+    expect(result.nextSortIndex).toBe(5);
+    expect(result.error).toBeNull();
+  });
+});
+
 describe("buildInitialTransforms", () => {
   it("returns zeroed position and rotation with scale 1", () => {
     const transforms = buildInitialTransforms();
@@ -118,6 +144,15 @@ describe("mergeTransforms", () => {
 
   it("treats null transforms as an empty object", () => {
     const result = mergeTransforms(null, { scale: 2 });
+    expect(result.scale).toBe(2);
+  });
+
+  it("applies a rotation patch without affecting other fields", () => {
+    const base = { position: { x: 1, y: 0, z: 0 }, scale: 2 };
+    const result = mergeTransforms(base, {
+      rotation: { x: 0, y: 90, z: 0 },
+    });
+    expect(result.rotation).toEqual({ x: 0, y: 90, z: 0 });
     expect(result.scale).toBe(2);
   });
 });

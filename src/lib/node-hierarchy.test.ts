@@ -131,6 +131,15 @@ describe("buildWorldMatrixByNodeId", () => {
     expect(() => buildWorldMatrixByNodeId(nodes)).not.toThrow();
     expect(buildWorldMatrixByNodeId(nodes).size).toBe(2);
   });
+
+  it("returns an identity-equivalent matrix when parent_id references a missing node", () => {
+    const nodes = [{ id: "child", parent_id: "nonexistent", transforms: null }];
+    const matrices = buildWorldMatrixByNodeId(nodes);
+    expect(matrices.size).toBe(1);
+    const t = nodeTransformsFromMatrix(matrices.get("child")!);
+    expect(t.position.x).toBeCloseTo(0);
+    expect(t.scale).toBeCloseTo(1);
+  });
 });
 
 describe("buildWorldTransformsByNodeId", () => {
