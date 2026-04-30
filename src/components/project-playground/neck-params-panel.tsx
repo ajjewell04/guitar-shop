@@ -28,6 +28,9 @@ export function NeckParamsPanel({ getGroupForNode }: NeckParamsPanelProps) {
   const neckDraftByNodeId = useProjectPlaygroundStore(
     (s) => s.neckDraftByNodeId,
   );
+  const neckInputDraftByNodeId = useProjectPlaygroundStore(
+    (s) => s.neckInputDraftByNodeId,
+  );
   const headstockLoadByNodeId = useProjectPlaygroundStore(
     (s) => s.headstockLoadByNodeId,
   );
@@ -42,7 +45,6 @@ export function NeckParamsPanel({ getGroupForNode }: NeckParamsPanelProps) {
     (s) => s.setNeckTransformTarget,
   );
   const updateNeckDraft = useProjectPlaygroundStore((s) => s.updateNeckDraft);
-  const resetNeckDraft = useProjectPlaygroundStore((s) => s.resetNeckDraft);
   const setNeckNumberInput = useProjectPlaygroundStore(
     (s) => s.setNeckNumberInput,
   );
@@ -69,6 +71,19 @@ export function NeckParamsPanel({ getGroupForNode }: NeckParamsPanelProps) {
     [headstockAssets],
   );
 
+  if (!selectedNeckNode) return null;
+
+  const nodeId = selectedNeckNode.id;
+  const currentParams = neckDraftByNodeId[nodeId] ?? DEFAULT_NECK_PARAMS;
+  const isCompound = currentParams.fingerboardRadiusMode === "compound";
+
+  const triggerAutoSave = () => {
+    if (savingNeckNodeId === nodeId) return;
+    const group = getGroupForNode(nodeId);
+    if (!group) return;
+    void applyAndSaveNeck(selectedNeckNode, group);
+  };
+
   function resolveHeadstockRenderState(params: NeckParams | null | undefined) {
     if (!params?.headstockAssetId)
       return {
@@ -87,11 +102,6 @@ export function NeckParamsPanel({ getGroupForNode }: NeckParamsPanelProps) {
     };
   }
 
-  if (!selectedNeckNode) return null;
-
-  const nodeId = selectedNeckNode.id;
-  const currentParams = neckDraftByNodeId[nodeId] ?? DEFAULT_NECK_PARAMS;
-  const isCompound = currentParams.fingerboardRadiusMode === "compound";
   const hsRenderState = resolveHeadstockRenderState(currentParams);
   const canTargetHs =
     !!currentParams.headstockAssetId &&
@@ -113,15 +123,21 @@ export function NeckParamsPanel({ getGroupForNode }: NeckParamsPanelProps) {
           min={meta.min}
           max={meta.max}
           step={meta.step}
-          value={String(currentParams[key])}
+          value={
+            neckInputDraftByNodeId[nodeId]?.[key] ?? String(currentParams[key])
+          }
           onChange={(e) => setNeckNumberInput(nodeId, key, e.target.value)}
           onKeyDown={(e) => {
             if (e.key === "Enter") {
               e.preventDefault();
               commitNeckNumberInput(nodeId, key);
+              triggerAutoSave();
             }
           }}
-          onBlur={() => commitNeckNumberInput(nodeId, key)}
+          onBlur={() => {
+            commitNeckNumberInput(nodeId, key);
+            triggerAutoSave();
+          }}
         />
       </label>
     );
@@ -187,6 +203,7 @@ export function NeckParamsPanel({ getGroupForNode }: NeckParamsPanelProps) {
                   const nextId = e.target.value || null;
                   updateNeckDraft(nodeId, { headstockAssetId: nextId });
                   setNeckTransformTarget(nextId ? "headstock" : "neck");
+                  triggerAutoSave();
                 }}
               >
                 <option value="">Select headstock</option>
@@ -229,12 +246,13 @@ export function NeckParamsPanel({ getGroupForNode }: NeckParamsPanelProps) {
               <select
                 className="mt-1 w-full rounded border border-white/20 bg-[#0f1616] px-2 py-1"
                 value={currentParams.profileType ?? "C"}
-                onChange={(e) =>
+                onChange={(e) => {
                   updateNeckDraft(nodeId, {
                     profileType: e.target
                       .value as typeof currentParams.profileType,
-                  })
-                }
+                  });
+                  triggerAutoSave();
+                }}
               >
                 <option value="C">C</option>
                 <option value="U">U</option>
@@ -256,12 +274,13 @@ export function NeckParamsPanel({ getGroupForNode }: NeckParamsPanelProps) {
               <select
                 className="mt-1 w-full rounded border border-white/20 bg-[#0f1616] px-2 py-1"
                 value={currentParams.fingerboardRadiusMode}
-                onChange={(e) =>
+                onChange={(e) => {
                   updateNeckDraft(nodeId, {
                     fingerboardRadiusMode: e.target
                       .value as typeof currentParams.fingerboardRadiusMode,
-                  })
-                }
+                  });
+                  triggerAutoSave();
+                }}
               >
                 <option value="single">single</option>
                 <option value="compound">compound</option>
@@ -307,11 +326,12 @@ export function NeckParamsPanel({ getGroupForNode }: NeckParamsPanelProps) {
               <select
                 className="mt-1 w-full rounded border border-white/20 bg-[#0f1616] px-2 py-1"
                 value={currentParams.heelType}
-                onChange={(e) =>
+                onChange={(e) => {
                   updateNeckDraft(nodeId, {
                     heelType: e.target.value as typeof currentParams.heelType,
-                  })
-                }
+                  });
+                  triggerAutoSave();
+                }}
               >
                 <option value="flat">flat</option>
                 <option value="sculpted">sculpted</option>
@@ -331,28 +351,12 @@ export function NeckParamsPanel({ getGroupForNode }: NeckParamsPanelProps) {
         </section>
       </div>
 
-      <div className="mt-3 flex gap-2">
-        <button
-          className="rounded border border-emerald-400 px-3 py-1 text-xs"
-          disabled={
-            savingNeckNodeId === nodeId ||
-            !neckDraftByNodeId[nodeId]?.headstockAssetId ||
-            headstockLoadByNodeId[nodeId]?.status !== "ready"
-          }
-          onClick={() => {
-            const group = getGroupForNode(nodeId);
-            if (group) void applyAndSaveNeck(selectedNeckNode, group);
-          }}
-        >
-          {savingNeckNodeId === nodeId ? "Saving..." : "Apply & Save"}
-        </button>
-        <button
-          className="rounded border border-white/30 px-3 py-1 text-xs"
-          onClick={() => resetNeckDraft(nodeId)}
-        >
-          Reset
-        </button>
-      </div>
+      {savingNeckNodeId === nodeId ? (
+        <div className="mt-3 flex items-center gap-1.5 text-xs text-muted-foreground">
+          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />
+          Saving...
+        </div>
+      ) : null}
     </aside>
   );
 }

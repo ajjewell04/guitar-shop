@@ -33,54 +33,7 @@ export async function createNeckAsset(db: Db, userId: string, name: string) {
     };
   }
 
-  const { data: modelFile, error: modelFileError } = await db
-    .from("asset_files")
-    .insert({
-      asset_id: asset.id,
-      owner_id: userId,
-      file_variant: "original",
-      bucket: S3_BUCKET,
-      object_key: null,
-      mime_type: "model/gltf-binary",
-      bytes: null,
-    })
-    .select("id")
-    .single();
-
-  if (modelFileError || !modelFile) {
-    await db.from("assets").delete().eq("id", asset.id).eq("owner_id", userId);
-    return {
-      data: null,
-      error: {
-        message:
-          modelFileError?.message ?? "Failed to create associated asset_file",
-        status: 400 as const,
-      },
-    };
-  }
-
-  const { error: linkError } = await db
-    .from("assets")
-    .update({ asset_file_id: modelFile.id, last_updated: now })
-    .eq("id", asset.id)
-    .eq("owner_id", userId);
-
-  if (linkError) {
-    await db.from("asset_files").delete().eq("id", modelFile.id);
-    await db.from("assets").delete().eq("id", asset.id).eq("owner_id", userId);
-    return {
-      data: null,
-      error: {
-        message: linkError.message ?? "Failed to link asset_file",
-        status: 400 as const,
-      },
-    };
-  }
-
-  return {
-    data: { assetId: asset.id, assetFileId: modelFile.id },
-    error: null,
-  };
+  return { data: { assetId: asset.id }, error: null };
 }
 
 export async function getNeckPresignUrls(
@@ -154,26 +107,23 @@ export async function saveNeckParams(
   },
 ) {
   const params = normalizeNeckParams(args.neckParams);
-  if (!params.headstockAssetId) {
-    return {
-      error: { message: "headstockAssetId is required", status: 400 as const },
-    };
-  }
 
-  const { data: headstock } = await db
-    .from("assets")
-    .select("id, owner_id, part_type")
-    .eq("id", params.headstockAssetId)
-    .single();
+  if (params.headstockAssetId) {
+    const { data: headstock } = await db
+      .from("assets")
+      .select("id, owner_id, part_type")
+      .eq("id", params.headstockAssetId)
+      .single();
 
-  if (
-    !headstock ||
-    headstock.owner_id !== userId ||
-    headstock.part_type !== "headstock"
-  ) {
-    return {
-      error: { message: "Invalid headstock asset", status: 400 as const },
-    };
+    if (
+      !headstock ||
+      headstock.owner_id !== userId ||
+      headstock.part_type !== "headstock"
+    ) {
+      return {
+        error: { message: "Invalid headstock asset", status: 400 as const },
+      };
+    }
   }
 
   const { data: asset, error: assetError } = await db
@@ -203,12 +153,15 @@ export async function saveNeckParams(
       bytes?: number;
     },
   ) => {
+    const filename = fields.object_key.split("/").at(-1) ?? null;
+
     if (existingId) {
       await db
         .from("asset_files")
         .update({
           bucket: S3_BUCKET,
           object_key: fields.object_key,
+          filename,
           file_variant: fields.file_variant,
           mime_type: fields.mime_type,
           bytes: fields.bytes ?? null,
@@ -224,6 +177,7 @@ export async function saveNeckParams(
         owner_id: userId,
         bucket: S3_BUCKET,
         object_key: fields.object_key,
+        filename,
         file_variant: fields.file_variant,
         mime_type: fields.mime_type,
         bytes: fields.bytes ?? null,

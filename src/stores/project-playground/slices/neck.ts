@@ -8,6 +8,7 @@ import {
 } from "@/lib/neck/params";
 import { GLTFExporter } from "three/examples/jsm/exporters/GLTFExporter.js";
 import type * as THREE from "three";
+import { buildProceduralNeckMesh } from "@/lib/neck/mesh";
 import { renderModelPreview } from "@/lib/preview/model";
 import { NUMERIC_NECK_META } from "../constants";
 import {
@@ -245,6 +246,14 @@ export const createNeckSlice: StateCreator<FullStore, [], [], NeckSlice> = (
               },
         }));
         get().setSelectedNodeId(createdNodeId);
+
+        // Build and save the initial GLB + preview immediately without needing
+        // the R3F scene group — procedural geometry can be constructed directly.
+        const neckNode = get().nodes.find((n) => n.id === createdNodeId);
+        if (neckNode) {
+          const neckGroup = buildProceduralNeckMesh(DEFAULT_NECK_PARAMS);
+          void get().applyAndSaveNeck(neckNode, neckGroup);
+        }
       }
 
       window.dispatchEvent(new Event("assets-changed"));
@@ -261,22 +270,6 @@ export const createNeckSlice: StateCreator<FullStore, [], [], NeckSlice> = (
     if (!node.asset?.id) return;
     const draft = get().neckDraftByNodeId[node.id];
     if (!draft) return;
-
-    if (!draft.headstockAssetId) {
-      set({ errorMessage: "Please select a headstock asset." });
-      return;
-    }
-
-    const headstockLoad = get().headstockLoadByNodeId[node.id];
-    if (!headstockLoad || headstockLoad.status !== "ready") {
-      set({
-        errorMessage:
-          headstockLoad?.status === "loading"
-            ? "Headstock model is still loading."
-            : (headstockLoad?.message ?? "Headstock model is not ready."),
-      });
-      return;
-    }
 
     set({ savingNeckNodeId: node.id, errorMessage: null });
 

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { supabaseServer } from "@/lib/supabase/server";
 import {
   createNeckAsset,
@@ -95,15 +95,87 @@ describe("getNeckPresignUrls", () => {
 });
 
 describe("saveNeckParams", () => {
-  it("returns 400 when neckParams has no headstockAssetId", async () => {
-    const db = { from: vi.fn() };
-    const result = await saveNeckParams(db as unknown as Db, "user-1", {
-      assetId: "asset-1",
-      neckParams: {},
+  describe("happy path — upsertFile inserts with filename", () => {
+    const userId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    const assetId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+    const hsId = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
+
+    let modelInsert: ReturnType<typeof vi.fn>;
+    let previewInsert: ReturnType<typeof vi.fn>;
+
+    beforeEach(() => {
+      vi.clearAllMocks();
     });
-    expect(result.error?.status).toBe(400);
-    expect(result.error?.message).toContain("headstockAssetId");
-    expect(db.from).not.toHaveBeenCalled();
+
+    it("sets filename derived from object_key on both asset_file inserts", async () => {
+      const hsChain = makeChain({
+        data: { id: hsId, owner_id: userId, part_type: "headstock" },
+        error: null,
+      });
+      const assetChain = makeChain({
+        data: {
+          id: assetId,
+          owner_id: userId,
+          part_type: "neck",
+          asset_file_id: null,
+          preview_file_id: null,
+        },
+        error: null,
+      });
+
+      modelInsert = vi
+        .fn()
+        .mockReturnValue(
+          makeChain({ data: { id: "model-file-1" }, error: null }),
+        );
+      const modelChain = {
+        ...makeChain({ data: { id: "model-file-1" }, error: null }),
+        insert: modelInsert,
+      };
+
+      previewInsert = vi
+        .fn()
+        .mockReturnValue(
+          makeChain({ data: { id: "preview-file-1" }, error: null }),
+        );
+      const previewChain = {
+        ...makeChain({ data: { id: "preview-file-1" }, error: null }),
+        insert: previewInsert,
+      };
+
+      const linkChain = makeChain({ data: null, error: null });
+
+      const db = {
+        from: vi
+          .fn()
+          .mockReturnValueOnce(hsChain)
+          .mockReturnValueOnce(assetChain)
+          .mockReturnValueOnce(modelChain)
+          .mockReturnValueOnce(previewChain)
+          .mockReturnValueOnce(linkChain),
+      };
+
+      const result = await saveNeckParams(db as unknown as Db, userId, {
+        assetId,
+        neckParams: { headstockAssetId: hsId },
+        modelBytes: 1024,
+        previewBytes: 512,
+      });
+
+      expect(result.error).toBeNull();
+
+      const modelPayload = modelInsert.mock.calls[0]?.[0] as Record<
+        string,
+        unknown
+      >;
+      expect(modelPayload).toMatchObject({ filename: "generated-neck.glb" });
+
+      const previewPayload = previewInsert.mock.calls[0]?.[0] as Record<
+        string,
+        unknown
+      >;
+      expect(previewPayload).toMatchObject({ filename: "generated-neck.png" });
+    });
   });
 });
 
@@ -111,22 +183,13 @@ describe("createNeckAsset", () => {
   const userId = "user-1";
   const name = "My Neck";
 
-  it("returns data with assetId and assetFileId on success", async () => {
+  it("returns data with assetId on success", async () => {
     const assetChain = makeChain({ data: { id: "asset-1" }, error: null });
-    const fileChain = makeChain({ data: { id: "file-1" }, error: null });
-    const linkChain = makeChain({ data: null, error: null });
-
-    const db = {
-      from: vi
-        .fn()
-        .mockReturnValueOnce(assetChain)
-        .mockReturnValueOnce(fileChain)
-        .mockReturnValueOnce(linkChain),
-    };
+    const db = { from: vi.fn().mockReturnValue(assetChain) };
 
     const result = await createNeckAsset(db as unknown as Db, userId, name);
     expect(result.error).toBeNull();
-    expect(result.data).toEqual({ assetId: "asset-1", assetFileId: "file-1" });
+    expect(result.data).toEqual({ assetId: "asset-1" });
   });
 
   it("returns a 400 error when the asset insert fails", async () => {
@@ -140,26 +203,5 @@ describe("createNeckAsset", () => {
     expect(result.data).toBeNull();
     expect(result.error?.status).toBe(400);
     expect(result.error?.message).toContain("insert failed");
-  });
-
-  it("returns a 400 error when the asset_file insert fails", async () => {
-    const assetChain = makeChain({ data: { id: "asset-1" }, error: null });
-    const fileChain = makeChain({
-      data: null,
-      error: { message: "file insert failed" },
-    });
-    const deleteChain = makeChain({ data: null, error: null });
-
-    const db = {
-      from: vi
-        .fn()
-        .mockReturnValueOnce(assetChain)
-        .mockReturnValueOnce(fileChain)
-        .mockReturnValueOnce(deleteChain),
-    };
-
-    const result = await createNeckAsset(db as unknown as Db, userId, name);
-    expect(result.data).toBeNull();
-    expect(result.error?.status).toBe(400);
   });
 });
