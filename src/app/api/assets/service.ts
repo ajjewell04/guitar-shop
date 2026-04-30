@@ -105,7 +105,7 @@ export async function copyAssetToLibrary(
       data: null,
       error: {
         message: newAssetError?.message ?? "Asset insert failed",
-        status: 400 as const,
+        status: 500 as const,
       },
     };
   }
@@ -116,28 +116,41 @@ export async function copyAssetToLibrary(
   const copiedModelKey = `users/${userId}/models/${newAsset.id}/${modelFilename}`;
   const copiedPreviewKey = `users/${userId}/models/${newAsset.id}/${previewFilename}`;
 
-  await Promise.all([
-    s3Client.send(
-      new CopyObjectCommand({
-        Bucket: S3_BUCKET,
-        CopySource: toCopySource(
-          modelFile.bucket ?? S3_BUCKET,
-          modelFile.object_key,
-        ),
-        Key: copiedModelKey,
-      }),
-    ),
-    s3Client.send(
-      new CopyObjectCommand({
-        Bucket: S3_BUCKET,
-        CopySource: toCopySource(
-          previewFile.bucket ?? S3_BUCKET,
-          previewFile.object_key,
-        ),
-        Key: copiedPreviewKey,
-      }),
-    ),
-  ]);
+  try {
+    await Promise.all([
+      s3Client.send(
+        new CopyObjectCommand({
+          Bucket: S3_BUCKET,
+          CopySource: toCopySource(
+            modelFile.bucket ?? S3_BUCKET,
+            modelFile.object_key,
+          ),
+          Key: copiedModelKey,
+        }),
+      ),
+      s3Client.send(
+        new CopyObjectCommand({
+          Bucket: S3_BUCKET,
+          CopySource: toCopySource(
+            previewFile.bucket ?? S3_BUCKET,
+            previewFile.object_key,
+          ),
+          Key: copiedPreviewKey,
+        }),
+      ),
+    ]);
+  } catch (err) {
+    console.error("[S3 copy failed]", err);
+    await db
+      .from("assets")
+      .delete()
+      .eq("id", newAsset.id)
+      .eq("owner_id", userId);
+    return {
+      data: null,
+      error: { message: "S3 copy failed", status: 500 as const },
+    };
+  }
 
   const { data: newModelFile, error: modelFileError } = await db
     .from("asset_files")
@@ -154,11 +167,16 @@ export async function copyAssetToLibrary(
     .single();
 
   if (modelFileError || !newModelFile) {
+    await db
+      .from("assets")
+      .delete()
+      .eq("id", newAsset.id)
+      .eq("owner_id", userId);
     return {
       data: null,
       error: {
         message: modelFileError?.message ?? "Model file record insert failed",
-        status: 400 as const,
+        status: 500 as const,
       },
     };
   }
@@ -178,12 +196,18 @@ export async function copyAssetToLibrary(
     .single();
 
   if (previewFileError || !newPreviewFile) {
+    await db.from("asset_files").delete().eq("id", newModelFile.id);
+    await db
+      .from("assets")
+      .delete()
+      .eq("id", newAsset.id)
+      .eq("owner_id", userId);
     return {
       data: null,
       error: {
         message:
           previewFileError?.message ?? "Preview file record insert failed",
-        status: 400 as const,
+        status: 500 as const,
       },
     };
   }
@@ -203,7 +227,7 @@ export async function copyAssetToLibrary(
       data: null,
       error: {
         message: updateAssetError.message ?? "Asset file linkage failed",
-        status: 400 as const,
+        status: 500 as const,
       },
     };
   }
@@ -242,7 +266,7 @@ export async function createAssetFromTemplate(
       data: null,
       error: {
         message: newAssetError?.message ?? "Template asset insert failed",
-        status: 400 as const,
+        status: 500 as const,
       },
     };
   }
@@ -253,24 +277,37 @@ export async function createAssetFromTemplate(
   const copiedModelKey = `${folder}/${modelFilename}`;
   const copiedPreviewKey = `${folder}/${previewFilename}`;
 
-  await Promise.all([
-    s3Client.send(
-      new CopyObjectCommand({
-        Bucket: S3_BUCKET,
-        CopySource: toCopySource(S3_BUCKET, template.glb),
-        Key: copiedModelKey,
-        ContentType: "model/gltf-binary",
-      }),
-    ),
-    s3Client.send(
-      new CopyObjectCommand({
-        Bucket: S3_BUCKET,
-        CopySource: toCopySource(S3_BUCKET, template.preview),
-        Key: copiedPreviewKey,
-        ContentType: "image/png",
-      }),
-    ),
-  ]);
+  try {
+    await Promise.all([
+      s3Client.send(
+        new CopyObjectCommand({
+          Bucket: S3_BUCKET,
+          CopySource: toCopySource(S3_BUCKET, template.glb),
+          Key: copiedModelKey,
+          ContentType: "model/gltf-binary",
+        }),
+      ),
+      s3Client.send(
+        new CopyObjectCommand({
+          Bucket: S3_BUCKET,
+          CopySource: toCopySource(S3_BUCKET, template.preview),
+          Key: copiedPreviewKey,
+          ContentType: "image/png",
+        }),
+      ),
+    ]);
+  } catch (err) {
+    console.error("[S3 copy failed]", err);
+    await db
+      .from("assets")
+      .delete()
+      .eq("id", newAsset.id)
+      .eq("owner_id", userId);
+    return {
+      data: null,
+      error: { message: "S3 copy failed", status: 500 as const },
+    };
+  }
 
   const { data: modelFile, error: modelFileError } = await db
     .from("asset_files")
@@ -286,11 +323,16 @@ export async function createAssetFromTemplate(
     .single();
 
   if (modelFileError || !modelFile) {
+    await db
+      .from("assets")
+      .delete()
+      .eq("id", newAsset.id)
+      .eq("owner_id", userId);
     return {
       data: null,
       error: {
         message: modelFileError?.message ?? "Model file record insert failed",
-        status: 400 as const,
+        status: 500 as const,
       },
     };
   }
@@ -309,12 +351,18 @@ export async function createAssetFromTemplate(
     .single();
 
   if (previewFileError || !previewFile) {
+    await db.from("asset_files").delete().eq("id", modelFile.id);
+    await db
+      .from("assets")
+      .delete()
+      .eq("id", newAsset.id)
+      .eq("owner_id", userId);
     return {
       data: null,
       error: {
         message:
           previewFileError?.message ?? "Preview file record insert failed",
-        status: 400 as const,
+        status: 500 as const,
       },
     };
   }
@@ -334,7 +382,7 @@ export async function createAssetFromTemplate(
       data: null,
       error: {
         message: updateAssetError.message ?? "Asset file linkage failed",
-        status: 400 as const,
+        status: 500 as const,
       },
     };
   }

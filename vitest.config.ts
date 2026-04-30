@@ -9,6 +9,11 @@ export default defineConfig({
     globals: true,
     coverage: {
       provider: "v8",
+      thresholds: {
+        branches: 75,
+        functions: 80,
+        lines: 80,
+      },
       include: [
         "src/lib/**/*.ts",
         "src/app/api/**/*.ts",
@@ -27,6 +32,8 @@ export default defineConfig({
         "src/app/api/_shared/http.ts",
         // AWS SDK client init — reads credentials at module load, not testable in Node
         "src/lib/s3/client.ts",
+        // Env validation — reads process.env at module load, not testable in Node
+        "src/lib/env.ts",
       ],
     },
   },

@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
+import { s3Client } from "@/lib/s3/client";
 import type { supabaseServer } from "@/lib/supabase/server";
 import {
   TEMPLATE_S3_KEYS,
@@ -54,6 +55,8 @@ function makeDb(result: { data: unknown; error: unknown }) {
     rpc: vi.fn().mockReturnValue(makeChain(result)),
   } as unknown as Db;
 }
+
+const cleanupChain = makeChain({ data: null, error: null });
 
 describe("TEMPLATE_S3_KEYS", () => {
   it("contains entries for all three template keys", () => {
@@ -116,7 +119,7 @@ describe("copyAssetToLibrary", () => {
     expect(result.error?.status).toBe(400);
   });
 
-  it("returns 400 when the new asset insert fails", async () => {
+  it("returns 500 when the new asset insert fails", async () => {
     const sourceChain = makeChain({ data: validSource, error: null });
     const insertChain = makeChain({
       data: null,
@@ -130,29 +133,54 @@ describe("copyAssetToLibrary", () => {
     } as unknown as Db;
     const result = await copyAssetToLibrary(db, userId, sourceAssetId);
     expect(result.data).toBeNull();
-    expect(result.error?.status).toBe(400);
+    expect(result.error?.status).toBe(500);
   });
 
-  it("returns 400 when the model file insert fails", async () => {
+  it("returns 500 and cleans up the asset row when S3 copy throws", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.spyOn(s3Client, "send").mockRejectedValueOnce(new Error("S3 error"));
+
+    const sourceChain = makeChain({ data: validSource, error: null });
+    const assetChain = makeChain({ data: { id: "new-asset-1" }, error: null });
+    const fromSpy = vi
+      .fn()
+      .mockReturnValueOnce(sourceChain)
+      .mockReturnValueOnce(assetChain)
+      .mockReturnValue(cleanupChain);
+    const db = { from: fromSpy } as unknown as Db;
+
+    const result = await copyAssetToLibrary(db, userId, sourceAssetId);
+
+    expect(result.data).toBeNull();
+    expect(result.error?.status).toBe(500);
+    // source fetch + asset insert + cleanup delete
+    expect(fromSpy).toHaveBeenCalledTimes(3);
+    expect(fromSpy).toHaveBeenNthCalledWith(3, "assets");
+  });
+
+  it("returns 500 and cleans up the asset row when the model file insert fails", async () => {
     const sourceChain = makeChain({ data: validSource, error: null });
     const assetChain = makeChain({ data: { id: "new-asset-1" }, error: null });
     const modelFileChain = makeChain({
       data: null,
       error: { message: "model file insert failed" },
     });
-    const db = {
-      from: vi
-        .fn()
-        .mockReturnValueOnce(sourceChain)
-        .mockReturnValueOnce(assetChain)
-        .mockReturnValueOnce(modelFileChain),
-    } as unknown as Db;
+    const fromSpy = vi
+      .fn()
+      .mockReturnValueOnce(sourceChain)
+      .mockReturnValueOnce(assetChain)
+      .mockReturnValueOnce(modelFileChain)
+      .mockReturnValue(cleanupChain);
+    const db = { from: fromSpy } as unknown as Db;
     const result = await copyAssetToLibrary(db, userId, sourceAssetId);
     expect(result.data).toBeNull();
-    expect(result.error?.status).toBe(400);
+    expect(result.error?.status).toBe(500);
+    // source fetch + asset insert + model file insert + cleanup delete
+    expect(fromSpy).toHaveBeenCalledTimes(4);
+    expect(fromSpy).toHaveBeenNthCalledWith(4, "assets");
   });
 
-  it("returns 400 when the preview file insert fails", async () => {
+  it("returns 500 and cleans up both rows when the preview file insert fails", async () => {
     const sourceChain = makeChain({ data: validSource, error: null });
     const assetChain = makeChain({ data: { id: "new-asset-1" }, error: null });
     const modelFileChain = makeChain({
@@ -163,20 +191,24 @@ describe("copyAssetToLibrary", () => {
       data: null,
       error: { message: "preview file insert failed" },
     });
-    const db = {
-      from: vi
-        .fn()
-        .mockReturnValueOnce(sourceChain)
-        .mockReturnValueOnce(assetChain)
-        .mockReturnValueOnce(modelFileChain)
-        .mockReturnValueOnce(previewFileChain),
-    } as unknown as Db;
+    const fromSpy = vi
+      .fn()
+      .mockReturnValueOnce(sourceChain)
+      .mockReturnValueOnce(assetChain)
+      .mockReturnValueOnce(modelFileChain)
+      .mockReturnValueOnce(previewFileChain)
+      .mockReturnValue(cleanupChain);
+    const db = { from: fromSpy } as unknown as Db;
     const result = await copyAssetToLibrary(db, userId, sourceAssetId);
     expect(result.data).toBeNull();
-    expect(result.error?.status).toBe(400);
+    expect(result.error?.status).toBe(500);
+    // source + asset insert + model file + preview file + delete model file + delete asset
+    expect(fromSpy).toHaveBeenCalledTimes(6);
+    expect(fromSpy).toHaveBeenNthCalledWith(5, "asset_files");
+    expect(fromSpy).toHaveBeenNthCalledWith(6, "assets");
   });
 
-  it("returns 400 when the asset linkage update fails", async () => {
+  it("returns 500 when the asset linkage update fails", async () => {
     const sourceChain = makeChain({ data: validSource, error: null });
     const assetChain = makeChain({ data: { id: "new-asset-1" }, error: null });
     const modelFileChain = makeChain({ data: { id: "new-mf-1" }, error: null });
@@ -199,7 +231,7 @@ describe("copyAssetToLibrary", () => {
     } as unknown as Db;
     const result = await copyAssetToLibrary(db, userId, sourceAssetId);
     expect(result.data).toBeNull();
-    expect(result.error?.status).toBe(400);
+    expect(result.error?.status).toBe(500);
   });
 
   it("returns the new assetId on success", async () => {
@@ -230,48 +262,75 @@ describe("copyAssetToLibrary", () => {
 describe("createAssetFromTemplate", () => {
   const userId = "user-1";
 
-  it("returns 400 when the asset insert fails", async () => {
+  it("returns 500 when the asset insert fails", async () => {
     const db = makeDb({ data: null, error: { message: "insert failed" } });
 
     const result = await createAssetFromTemplate(db, userId, "stratocaster");
     expect(result.data).toBeNull();
-    expect(result.error?.status).toBe(400);
+    expect(result.error?.status).toBe(500);
   });
 
-  it("returns 400 when the model file insert fails", async () => {
+  it("returns 500 and cleans up the asset row when S3 copy throws", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.spyOn(s3Client, "send").mockRejectedValueOnce(new Error("S3 error"));
+
+    const assetChain = makeChain({ data: { id: "asset-1" }, error: null });
+    const fromSpy = vi
+      .fn()
+      .mockReturnValueOnce(assetChain)
+      .mockReturnValue(cleanupChain);
+    const db = { from: fromSpy } as unknown as Db;
+
+    const result = await createAssetFromTemplate(db, userId, "stratocaster");
+
+    expect(result.data).toBeNull();
+    expect(result.error?.status).toBe(500);
+    // asset insert + cleanup delete
+    expect(fromSpy).toHaveBeenCalledTimes(2);
+    expect(fromSpy).toHaveBeenNthCalledWith(2, "assets");
+  });
+
+  it("returns 500 and cleans up the asset row when the model file insert fails", async () => {
     const assetChain = makeChain({ data: { id: "asset-1" }, error: null });
     const modelFileChain = makeChain({
       data: null,
       error: { message: "file insert failed" },
     });
-    const db = {
-      from: vi
-        .fn()
-        .mockReturnValueOnce(assetChain)
-        .mockReturnValueOnce(modelFileChain),
-    } as unknown as Db;
+    const fromSpy = vi
+      .fn()
+      .mockReturnValueOnce(assetChain)
+      .mockReturnValueOnce(modelFileChain)
+      .mockReturnValue(cleanupChain);
+    const db = { from: fromSpy } as unknown as Db;
     const result = await createAssetFromTemplate(db, userId, "stratocaster");
     expect(result.data).toBeNull();
-    expect(result.error?.status).toBe(400);
+    expect(result.error?.status).toBe(500);
+    // asset insert + model file insert + cleanup delete
+    expect(fromSpy).toHaveBeenCalledTimes(3);
+    expect(fromSpy).toHaveBeenNthCalledWith(3, "assets");
   });
 
-  it("returns 400 when the preview file insert fails", async () => {
+  it("returns 500 and cleans up both rows when the preview file insert fails", async () => {
     const assetChain = makeChain({ data: { id: "asset-1" }, error: null });
     const modelFileChain = makeChain({ data: { id: "file-1" }, error: null });
     const previewFileChain = makeChain({
       data: null,
       error: { message: "preview insert failed" },
     });
-    const db = {
-      from: vi
-        .fn()
-        .mockReturnValueOnce(assetChain)
-        .mockReturnValueOnce(modelFileChain)
-        .mockReturnValueOnce(previewFileChain),
-    } as unknown as Db;
+    const fromSpy = vi
+      .fn()
+      .mockReturnValueOnce(assetChain)
+      .mockReturnValueOnce(modelFileChain)
+      .mockReturnValueOnce(previewFileChain)
+      .mockReturnValue(cleanupChain);
+    const db = { from: fromSpy } as unknown as Db;
     const result = await createAssetFromTemplate(db, userId, "stratocaster");
     expect(result.data).toBeNull();
-    expect(result.error?.status).toBe(400);
+    expect(result.error?.status).toBe(500);
+    // asset insert + model file + preview file + delete model file + delete asset
+    expect(fromSpy).toHaveBeenCalledTimes(5);
+    expect(fromSpy).toHaveBeenNthCalledWith(4, "asset_files");
+    expect(fromSpy).toHaveBeenNthCalledWith(5, "assets");
   });
 
   it("returns the new assetId on success", async () => {
