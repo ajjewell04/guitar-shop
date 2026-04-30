@@ -21,7 +21,7 @@ export const ExportAssetQuerySchema = z.object({
 export const ImportAssetBodySchema = z.object({
   objectKey: z.string().min(1),
   filename: z.string().min(1),
-  contentType: z.string().optional(),
+  contentType: z.enum(["model/gltf-binary", "model/gltf+json"]).optional(),
   bytes: z.number().int().nonnegative().optional(),
   assetName: z.string().min(1),
   partType: z.enum([
@@ -39,7 +39,7 @@ export const ImportAssetBodySchema = z.object({
     "miscellaneous",
   ]),
   previewObjectKey: z.string().min(1),
-  previewContentType: z.string().optional(),
+  previewContentType: z.enum(["image/png"]).optional(),
   previewBytes: z.number().int().nonnegative().optional(),
 });
 

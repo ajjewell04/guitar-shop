@@ -119,13 +119,18 @@ describe("promoteProjectRoot", () => {
 });
 
 describe("assignRootAsset", () => {
-  it("calls db.from with 'project_nodes'", async () => {
-    const fromFn = vi
-      .fn()
-      .mockReturnValue(makeChain({ data: null, error: null }));
+  it("updates project_nodes with asset_id and last_updated", async () => {
+    const chain = makeChain({ data: null, error: null });
+    const fromFn = vi.fn().mockReturnValue(chain);
     const db = { from: fromFn, rpc: vi.fn() } as unknown as DbClient;
     await assignRootAsset(db, "node-1", "asset-1");
     expect(fromFn).toHaveBeenCalledWith("project_nodes");
+    expect(chain.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        asset_id: "asset-1",
+        last_updated: expect.any(String),
+      }),
+    );
   });
 });
 

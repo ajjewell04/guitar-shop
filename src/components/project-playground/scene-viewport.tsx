@@ -379,7 +379,7 @@ export function SceneViewport({
             : null,
       };
     },
-    [headstockAssetById, getNeckParamsForNode],
+    [headstockAssetById],
   );
 
   const expectedModelNodes = useMemo(
@@ -453,7 +453,12 @@ export function SceneViewport({
     resetLoadedNodes();
     setHideModelLoadBadge(false);
     setModelLoadBadgeTimedOut(false);
-  }, [expectedKey]);
+  }, [
+    expectedKey,
+    resetLoadedNodes,
+    setHideModelLoadBadge,
+    setModelLoadBadgeTimedOut,
+  ]);
 
   useEffect(() => {
     if (!isModelLoading) {

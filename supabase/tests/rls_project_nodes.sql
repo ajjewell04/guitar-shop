@@ -4,7 +4,7 @@
 -- All four operations (select/insert/update/delete) require owning the parent project.
 
 begin;
-select plan(13);
+select plan(16);
 
 -- ── fixtures ────────────────────────────────────────────────────────────────
 
@@ -69,6 +69,36 @@ select is(
   0,
   'anon cannot see any project nodes'
 );
+
+-- ── anon write rejections ─────────────────────────────────────────────────────
+
+set local role anon;
+select set_config('request.jwt.claims', '{}', true);
+
+select throws_ok(
+  $$
+  insert into public.project_nodes (project_id, parent_id, type, name, sort_index, transforms, overrides, meta)
+  values (
+    'a3000000-0000-0000-0000-000000000001', null,
+    'assembly', 'Anon Node', 0,
+    '{"position":{"x":0,"y":0,"z":0},"rotation":{"x":0,"y":0,"z":0},"scale":{"x":1,"y":1,"z":1}}',
+    '{}', '{}'
+  )
+  $$,
+  '42501', NULL, 'anon cannot insert into project_nodes'
+);
+
+select throws_ok(
+  $$update public.project_nodes set name = 'Hacked' where id = 'a4000000-0000-0000-0000-000000000001'$$,
+  '42501', NULL, 'anon cannot update project_nodes'
+);
+
+select throws_ok(
+  $$delete from public.project_nodes where id = 'a4000000-0000-0000-0000-000000000001'$$,
+  '42501', NULL, 'anon cannot delete from project_nodes'
+);
+
+reset role;
 
 -- owner can see their nodes
 reset role;

@@ -63,36 +63,39 @@ export function ProjectList({ initialProjects }: ProjectListProps) {
     setProjects((payload.projects ?? []) as ProjectRow[]);
   }, []);
 
-  const regenerateProjectPreview = async (projectId: string, force = false) => {
-    if (inFlightRegenerationRef.current.has(projectId)) return;
-    if (!force && attemptedRegenerationRef.current.has(projectId)) return;
+  const regenerateProjectPreview = useCallback(
+    async (projectId: string, force = false) => {
+      if (inFlightRegenerationRef.current.has(projectId)) return;
+      if (!force && attemptedRegenerationRef.current.has(projectId)) return;
 
-    attemptedRegenerationRef.current.add(projectId);
-    inFlightRegenerationRef.current.add(projectId);
+      attemptedRegenerationRef.current.add(projectId);
+      inFlightRegenerationRef.current.add(projectId);
 
-    try {
-      const res = await fetch(`/api/projects/nodes?projectId=${projectId}`, {
-        cache: "no-store",
-      });
-      const payload = (await res
-        .json()
-        .catch(() => ({}))) as ProjectNodesPayload;
-      if (!res.ok) {
-        throw new Error(payload?.error ?? "Failed to load nodes for preview");
+      try {
+        const res = await fetch(`/api/projects/nodes?projectId=${projectId}`, {
+          cache: "no-store",
+        });
+        const payload = (await res
+          .json()
+          .catch(() => ({}))) as ProjectNodesPayload;
+        if (!res.ok) {
+          throw new Error(payload?.error ?? "Failed to load nodes for preview");
+        }
+
+        const previewNodes = toPreviewNodes(payload.nodes ?? []);
+        if (!previewNodes.length) return;
+
+        await saveProjectPreview(projectId, previewNodes);
+        await loadProjects();
+        window.dispatchEvent(new Event("projects-changed"));
+      } catch {
+        // Best effort background regeneration
+      } finally {
+        inFlightRegenerationRef.current.delete(projectId);
       }
-
-      const previewNodes = toPreviewNodes(payload.nodes ?? []);
-      if (!previewNodes.length) return;
-
-      await saveProjectPreview(projectId, previewNodes);
-      await loadProjects();
-      window.dispatchEvent(new Event("projects-changed"));
-    } catch {
-      // Best effort background regeneration
-    } finally {
-      inFlightRegenerationRef.current.delete(projectId);
-    }
-  };
+    },
+    [loadProjects],
+  );
 
   useEffect(() => {
     const missingPreviewIds = projects
@@ -114,7 +117,7 @@ export function ProjectList({ initialProjects }: ProjectListProps) {
     return () => {
       cancelled = true;
     };
-  }, [projects]);
+  }, [projects, regenerateProjectPreview]);
 
   useEffect(() => {
     const onProjectsChanged = () => void loadProjects();

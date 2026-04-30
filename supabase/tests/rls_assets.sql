@@ -6,7 +6,7 @@
 --   insert/update/delete → authenticated owner only
 
 begin;
-select plan(14);
+select plan(17);
 
 -- ── fixtures (as postgres superuser, bypasses RLS) ──────────────────────────
 
@@ -59,6 +59,28 @@ select is(
   0,
   'anon cannot see rejected asset'
 );
+
+-- ── anon write rejections ─────────────────────────────────────────────────────
+
+set local role anon;
+select set_config('request.jwt.claims', '{}', true);
+
+select throws_ok(
+  $$insert into public.assets (owner_id, name) values ('a0000000-0000-0000-0000-000000000001', 'Anon Insert')$$,
+  '42501', NULL, 'anon cannot insert into assets'
+);
+
+select throws_ok(
+  $$update public.assets set name = 'Hacked' where id = 'a1000000-0000-0000-0000-000000000001'$$,
+  '42501', NULL, 'anon cannot update assets'
+);
+
+select throws_ok(
+  $$delete from public.assets where id = 'a1000000-0000-0000-0000-000000000001'$$,
+  '42501', NULL, 'anon cannot delete from assets'
+);
+
+reset role;
 
 -- ── SELECT: authenticated non-owner (user_b) ─────────────────────────────────
 

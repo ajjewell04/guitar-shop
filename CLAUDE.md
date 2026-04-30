@@ -23,6 +23,7 @@ npm run db:new        # scaffold a new migration file: npm run db:new -- <name>
 npm run db:push       # apply local migrations to remote
 npm run db:pull       # pull remote schema → supabase/migrations/ (avoid — prefer db:new + db:push)
 npm run db:types      # regenerate src/types/database.types.ts from remote schema
+npm run db:test       # run pgTAP database tests against the local Supabase stack
 ```
 
 **Migration workflow** (local-first): write migrations locally → push to remote → regenerate types.
@@ -84,11 +85,19 @@ Key tables: `assets`, `asset_files`, `projects`, `project_nodes`.
 - A `project` has many `project_nodes`, each referencing an `asset` with a `transforms` JSON column `{ position, rotation, scale }`.
 - `assets.meta` is a freeform JSON column used for parametric neck params (`meta.neck`), mounting data (`meta.mounting`), and provenance (`meta.source`).
 
-**Migrations**: `supabase/migrations/` holds the canonical schema DDL. Run `npm run db:pull` after any schema change in the Supabase dashboard to capture it as a new migration file.
+**Migrations**: `supabase/migrations/` holds the canonical schema DDL. Always write migrations locally — never use `db:pull` to capture dashboard changes.
 
 **Generated types**: `src/types/database.types.ts` is fully generated — never edit it manually. Run `npm run db:types` after schema changes. It is excluded from ESLint. The `Database` type it exports is wired into all three Supabase client factories (`supabaseServer`, `supabaseBrowser`, `updateSession`), so `.from()` calls, insert/update payloads, and RPC calls are all schema-typed.
 
 Key enums from the generated schema: `file_variant` (`"original" | "optimized" | "preview"`), `part_type` (`"body" | "neck" | "headstock" | ...`), `upload_status` (`"approved" | "rejected" | "pending"`), `node_type` (`"assembly" | "part"`). Use `Database["public"]["Enums"]["<name>"]` to reference them in service/mapper types.
+
+**RLS policy model**: All four tables have RLS enabled. The access model is:
+
+- `projects` / `project_nodes` — owner-only for all operations. No public or cross-user access.
+- `assets` / `asset_files` — owner can read/write their own rows; `approved` assets and their files are publicly readable (anon + authenticated). Owners cannot set `upload_status = 'approved'` — only `service_role` can approve assets.
+- `project_nodes` asset reference — a node's `asset_id` must point to either an asset owned by the caller or any approved asset. This is the community library access path.
+
+When writing service code that reads or mutates these tables, the RLS policies are the last line of defence — but always apply `owner_id` / `project_id` filters at the query level too so queries never silently return zero rows instead of throwing.
 
 ### S3 Credentials
 
@@ -118,6 +127,39 @@ New projects are created via a strategy pattern in `src/components/projects/new-
 Project thumbnails are rendered client-side: Three.js scene → offscreen canvas → PNG blob → presign (`/api/projects/preview/presign`) → PUT to S3 → finalize (`/api/projects/preview`). Client helpers live in `src/lib/preview/project-client.ts`; the render logic is in `src/lib/preview/project.ts` (dynamically imported to keep it out of the initial bundle).
 
 ## Testing
+
+### Database tests (pgTAP)
+
+`supabase/tests/` holds SQL tests that run against the local Supabase stack using pgTAP. These test RLS policies and database functions — things that cannot be verified at the application layer.
+
+```
+supabase/tests/
+  rls_projects.sql      — projects table RLS
+  rls_assets.sql        — assets table RLS (incl. self-approval block)
+  rls_asset_files.sql   — asset_files table RLS
+  rls_project_nodes.sql — project_nodes table RLS (incl. community asset access)
+  functions.sql         — create_project_with_root / promote_project_root RPCs
+```
+
+Run with `npm run db:test` (requires the local Supabase stack to be running via `supabase start`).
+
+Each file follows this pattern:
+
+```sql
+begin;
+select plan(<n>);          -- declare expected test count
+-- fixtures inserted as postgres (bypasses RLS)
+-- tests with role-switching:
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub":"<uuid>","role":"authenticated"}', true);
+-- assertions via ok(), is(), lives_ok(), throws_ok()
+select * from finish();
+rollback;                  -- all fixtures cleaned up automatically
+```
+
+When adding new RLS policies or DB functions, add a corresponding test file (or extend an existing one). Test both the blocking side (`throws_ok` / zero rows) and the allowing side (`lives_ok` / expected row count) for every policy branch.
+
+### Application tests (Vitest)
 
 Vitest runs in **Node.js only** — no DOM or browser environment. Tests cover service functions, lib utilities, mappers, and DTO schemas. Preview and WebGL-dependent code cannot be tested in this environment.
 

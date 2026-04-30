@@ -45,8 +45,6 @@ describe("SaveNeckBodySchema", () => {
   const validBase = {
     assetId: UUID,
     neckParams: {},
-    modelObjectKey: "users/u1/models/neck.glb",
-    previewObjectKey: "users/u1/models/preview.png",
   };
 
   it("accepts a complete valid body", () => {
@@ -61,18 +59,6 @@ describe("SaveNeckBodySchema", () => {
         previewBytes: 512,
       }),
     ).not.toThrow();
-  });
-
-  it("rejects empty modelObjectKey", () => {
-    expect(() =>
-      SaveNeckBodySchema.parse({ ...validBase, modelObjectKey: "" }),
-    ).toThrow();
-  });
-
-  it("rejects empty previewObjectKey", () => {
-    expect(() =>
-      SaveNeckBodySchema.parse({ ...validBase, previewObjectKey: "" }),
-    ).toThrow();
   });
 
   it("rejects negative modelBytes", () => {

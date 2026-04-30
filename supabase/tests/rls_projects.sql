@@ -4,7 +4,7 @@
 -- Guests (anon) cannot see any projects.
 
 begin;
-select plan(9);
+select plan(12);
 
 -- ── fixtures ────────────────────────────────────────────────────────────────
 
@@ -44,6 +44,28 @@ select is(
   0,
   'anon cannot see any projects'
 );
+
+-- ── anon write rejections ─────────────────────────────────────────────────────
+
+set local role anon;
+select set_config('request.jwt.claims', '{}', true);
+
+select throws_ok(
+  $$insert into public.projects (owner_id, name) values ('a0000000-0000-0000-0000-000000000001', 'Anon Project')$$,
+  '42501', NULL, 'anon cannot insert into projects'
+);
+
+select throws_ok(
+  $$update public.projects set name = 'Hacked' where id = 'a3000000-0000-0000-0000-000000000001'$$,
+  '42501', NULL, 'anon cannot update projects'
+);
+
+select throws_ok(
+  $$delete from public.projects where id = 'a3000000-0000-0000-0000-000000000001'$$,
+  '42501', NULL, 'anon cannot delete from projects'
+);
+
+reset role;
 
 -- owner can see their own project
 reset role;

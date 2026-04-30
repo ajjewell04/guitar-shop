@@ -2,9 +2,9 @@ import { z } from "zod";
 
 export const INCH_TO_MM = 25.4;
 
-export const NeckProfileTypeSchema = z.enum(["C", "U", "V", "D"]);
-export const FingerboardRadiusModeSchema = z.enum(["single", "compound"]);
-export const HeelTypeSchema = z.enum(["flat", "sculpted"]);
+const NeckProfileTypeSchema = z.enum(["C", "U", "V", "D"]);
+const FingerboardRadiusModeSchema = z.enum(["single", "compound"]);
+const HeelTypeSchema = z.enum(["flat", "sculpted"]);
 
 export const NeckParamsSchema = z.object({
   scaleLengthIn: z.number().min(22.5).max(27).default(25.5),

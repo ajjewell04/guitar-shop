@@ -14,7 +14,7 @@ export const DeleteProjectBodySchema = z.object({
 export const UpdateProjectPreviewBodySchema = z.object({
   projectId: z.uuid(),
   previewObjectKey: z.string().min(1),
-  previewContentType: z.string().default("image/png"),
+  previewContentType: z.enum(["image/png"]).default("image/png"),
   previewBytes: z.number().int().nonnegative().nullable().optional(),
 });
 

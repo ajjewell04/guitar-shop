@@ -43,7 +43,7 @@ export async function assignRootAsset(
 ) {
   return db
     .from("project_nodes")
-    .update({ asset_id: assetId })
+    .update({ asset_id: assetId, last_updated: new Date().toISOString() })
     .eq("id", rootNodeId);
 }
 

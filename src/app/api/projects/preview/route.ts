@@ -34,6 +34,11 @@ export async function POST(req: Request) {
       : jsonError("Project not found", 404);
   }
 
+  const expectedPrefix = `users/${auth.user.id}/projects/${projectId}/`;
+  if (!previewObjectKey.startsWith(expectedPrefix)) {
+    return jsonError("Invalid previewObjectKey", 400);
+  }
+
   const nowIso = new Date().toISOString();
 
   const { data: previewFile, error: upsertError } =

@@ -16,6 +16,15 @@ export async function POST(req: Request) {
   if (!parsed.success) return jsonError("Invalid request body", 400);
 
   const body = parsed.data;
+
+  const keyPrefix = `users/${auth.user.id}/`;
+  if (
+    !body.objectKey.startsWith(keyPrefix) ||
+    !body.previewObjectKey.startsWith(keyPrefix)
+  ) {
+    return jsonError("objectKey outside user namespace", 400);
+  }
+
   const nowIso = new Date().toISOString();
 
   const { data: asset, error: assetError } = await supabase

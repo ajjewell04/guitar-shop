@@ -149,9 +149,7 @@ export async function saveNeckParams(
   args: {
     assetId: string;
     neckParams: Record<string, unknown>;
-    modelObjectKey: string;
     modelBytes?: number;
-    previewObjectKey: string;
     previewBytes?: number;
   },
 ) {
@@ -190,6 +188,9 @@ export async function saveNeckParams(
     return { error: { message: "Forbidden", status: 403 as const } };
   if (asset.part_type !== "neck")
     return { error: { message: "Asset must be neck", status: 400 as const } };
+
+  const modelKey = `users/${userId}/models/${args.assetId}/generated-neck.glb`;
+  const previewKey = `users/${userId}/models/${args.assetId}/generated-neck.png`;
 
   const now = new Date().toISOString();
 
@@ -236,13 +237,13 @@ export async function saveNeckParams(
 
   const [modelFileId, previewFileId] = await Promise.all([
     upsertFile(asset.asset_file_id, {
-      object_key: args.modelObjectKey,
+      object_key: modelKey,
       file_variant: "original",
       mime_type: "model/gltf-binary",
       bytes: args.modelBytes,
     }),
     upsertFile(asset.preview_file_id, {
-      object_key: args.previewObjectKey,
+      object_key: previewKey,
       file_variant: "preview",
       mime_type: "image/png",
       bytes: args.previewBytes,

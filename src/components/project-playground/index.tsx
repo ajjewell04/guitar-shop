@@ -129,7 +129,7 @@ function ProjectPlaygroundCoordinator({ className }: { className?: string }) {
 
   useEffect(() => {
     void loadProjectData();
-  }, [projectId]);
+  }, [projectId, loadProjectData]);
 
   useEffect(() => {
     if (!selectedNeckNode && neckTransformTarget !== "neck") {

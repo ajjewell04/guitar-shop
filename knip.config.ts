@@ -11,7 +11,8 @@ const config: KnipConfig = {
     "@tailwindcss/cli",
   ],
   // shadcn/ui components are a local component library; all exports are intentional.
-  ignore: ["src/components/ui/**"],
+  // database.types.ts is fully generated — unused-export noise is expected.
+  ignore: ["src/components/ui/**", "src/types/database.types.ts"],
 };
 
 export default config;

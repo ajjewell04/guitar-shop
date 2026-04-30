@@ -100,8 +100,6 @@ describe("saveNeckParams", () => {
     const result = await saveNeckParams(db as unknown as Db, "user-1", {
       assetId: "asset-1",
       neckParams: {},
-      modelObjectKey: "models/neck.glb",
-      previewObjectKey: "previews/neck.png",
     });
     expect(result.error?.status).toBe(400);
     expect(result.error?.message).toContain("headstockAssetId");

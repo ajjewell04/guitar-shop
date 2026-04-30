@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import { Button } from "@/components/ui/button";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -63,18 +63,23 @@ export default function WorkView({
   const sort = (searchParams.get("sort") as SortKey | null) ?? "asc";
   const [searchText, setSearchText] = useState(query);
 
-  function updatePageParams(updates: Record<string, string | null>) {
-    const params = new URLSearchParams(searchParams.toString());
+  const updatePageParams = useCallback(
+    (updates: Record<string, string | null>) => {
+      const params = new URLSearchParams(searchParams.toString());
 
-    Object.entries(updates).forEach(([key, value]) => {
-      if (!value) params.delete(key);
-      else params.set(key, value);
-    });
+      Object.entries(updates).forEach(([key, value]) => {
+        if (!value) params.delete(key);
+        else params.set(key, value);
+      });
 
-    const qs = params.toString();
-    const targetPath = pathname || "/";
-    router.replace(qs ? `${targetPath}?${qs}` : targetPath, { scroll: false });
-  }
+      const qs = params.toString();
+      const targetPath = pathname || "/";
+      router.replace(qs ? `${targetPath}?${qs}` : targetPath, {
+        scroll: false,
+      });
+    },
+    [searchParams, pathname, router],
+  );
 
   useEffect(() => {
     const supabase = supabaseBrowser();
@@ -102,7 +107,7 @@ export default function WorkView({
     }, 500);
 
     return () => clearTimeout(handle);
-  }, [searchText, isLibrary, query]);
+  }, [searchText, isLibrary, query, isHome, updatePageParams]);
 
   useEffect(() => {
     return () => {

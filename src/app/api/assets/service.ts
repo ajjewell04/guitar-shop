@@ -139,6 +139,75 @@ export async function copyAssetToLibrary(
     ),
   ]);
 
+  const { data: newModelFile, error: modelFileError } = await db
+    .from("asset_files")
+    .insert({
+      asset_id: newAsset.id,
+      owner_id: userId,
+      file_variant: "original",
+      bucket: S3_BUCKET,
+      object_key: copiedModelKey,
+      mime_type: modelFile.mime_type ?? "model/gltf-binary",
+      bytes: modelFile.bytes ?? null,
+    })
+    .select("id")
+    .single();
+
+  if (modelFileError || !newModelFile) {
+    return {
+      data: null,
+      error: {
+        message: modelFileError?.message ?? "Model file record insert failed",
+        status: 400 as const,
+      },
+    };
+  }
+
+  const { data: newPreviewFile, error: previewFileError } = await db
+    .from("asset_files")
+    .insert({
+      asset_id: newAsset.id,
+      owner_id: userId,
+      file_variant: "preview",
+      bucket: S3_BUCKET,
+      object_key: copiedPreviewKey,
+      mime_type: previewFile.mime_type ?? "image/png",
+      bytes: previewFile.bytes ?? null,
+    })
+    .select("id")
+    .single();
+
+  if (previewFileError || !newPreviewFile) {
+    return {
+      data: null,
+      error: {
+        message:
+          previewFileError?.message ?? "Preview file record insert failed",
+        status: 400 as const,
+      },
+    };
+  }
+
+  const { error: updateAssetError } = await db
+    .from("assets")
+    .update({
+      asset_file_id: newModelFile.id,
+      preview_file_id: newPreviewFile.id,
+      last_updated: nowIso,
+    })
+    .eq("id", newAsset.id)
+    .eq("owner_id", userId);
+
+  if (updateAssetError) {
+    return {
+      data: null,
+      error: {
+        message: updateAssetError.message ?? "Asset file linkage failed",
+        status: 400 as const,
+      },
+    };
+  }
+
   return {
     data: { assetId: newAsset.id, copiedFromAssetId: source.id },
     error: null,

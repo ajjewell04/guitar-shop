@@ -1,14 +1,14 @@
 import * as THREE from "three";
 
-export type Vec3 = { x: number; y: number; z: number };
+type Vec3 = { x: number; y: number; z: number };
 
-export type NodeTransforms = {
+type NodeTransforms = {
   position: Vec3;
   rotation: Vec3;
   scale: number;
 };
 
-export type HierarchyNodeLike = {
+type HierarchyNodeLike = {
   id: string;
   parent_id: string | null;
   transforms?: {

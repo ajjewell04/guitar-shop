@@ -28,6 +28,11 @@ function makeChain(result: { data: unknown; error: unknown }) {
   const chain: Record<string, unknown> = {
     single: vi.fn().mockResolvedValue(result),
     maybeSingle: vi.fn().mockResolvedValue(result),
+    // Makes the chain directly awaitable (e.g. for update/delete without .single())
+    then: (
+      resolve: (v: typeof result) => unknown,
+      reject?: (reason: unknown) => unknown,
+    ) => Promise.resolve(result).then(resolve, reject),
   };
   for (const m of [
     "select",
@@ -128,14 +133,92 @@ describe("copyAssetToLibrary", () => {
     expect(result.error?.status).toBe(400);
   });
 
-  it("returns the new assetId on success", async () => {
+  it("returns 400 when the model file insert fails", async () => {
     const sourceChain = makeChain({ data: validSource, error: null });
-    const insertChain = makeChain({ data: { id: "new-asset-1" }, error: null });
+    const assetChain = makeChain({ data: { id: "new-asset-1" }, error: null });
+    const modelFileChain = makeChain({
+      data: null,
+      error: { message: "model file insert failed" },
+    });
     const db = {
       from: vi
         .fn()
         .mockReturnValueOnce(sourceChain)
-        .mockReturnValueOnce(insertChain),
+        .mockReturnValueOnce(assetChain)
+        .mockReturnValueOnce(modelFileChain),
+    } as unknown as Db;
+    const result = await copyAssetToLibrary(db, userId, sourceAssetId);
+    expect(result.data).toBeNull();
+    expect(result.error?.status).toBe(400);
+  });
+
+  it("returns 400 when the preview file insert fails", async () => {
+    const sourceChain = makeChain({ data: validSource, error: null });
+    const assetChain = makeChain({ data: { id: "new-asset-1" }, error: null });
+    const modelFileChain = makeChain({
+      data: { id: "new-mf-1" },
+      error: null,
+    });
+    const previewFileChain = makeChain({
+      data: null,
+      error: { message: "preview file insert failed" },
+    });
+    const db = {
+      from: vi
+        .fn()
+        .mockReturnValueOnce(sourceChain)
+        .mockReturnValueOnce(assetChain)
+        .mockReturnValueOnce(modelFileChain)
+        .mockReturnValueOnce(previewFileChain),
+    } as unknown as Db;
+    const result = await copyAssetToLibrary(db, userId, sourceAssetId);
+    expect(result.data).toBeNull();
+    expect(result.error?.status).toBe(400);
+  });
+
+  it("returns 400 when the asset linkage update fails", async () => {
+    const sourceChain = makeChain({ data: validSource, error: null });
+    const assetChain = makeChain({ data: { id: "new-asset-1" }, error: null });
+    const modelFileChain = makeChain({ data: { id: "new-mf-1" }, error: null });
+    const previewFileChain = makeChain({
+      data: { id: "new-pf-1" },
+      error: null,
+    });
+    const updateChain = makeChain({
+      data: null,
+      error: { message: "linkage update failed" },
+    });
+    const db = {
+      from: vi
+        .fn()
+        .mockReturnValueOnce(sourceChain)
+        .mockReturnValueOnce(assetChain)
+        .mockReturnValueOnce(modelFileChain)
+        .mockReturnValueOnce(previewFileChain)
+        .mockReturnValueOnce(updateChain),
+    } as unknown as Db;
+    const result = await copyAssetToLibrary(db, userId, sourceAssetId);
+    expect(result.data).toBeNull();
+    expect(result.error?.status).toBe(400);
+  });
+
+  it("returns the new assetId on success", async () => {
+    const sourceChain = makeChain({ data: validSource, error: null });
+    const assetChain = makeChain({ data: { id: "new-asset-1" }, error: null });
+    const modelFileChain = makeChain({ data: { id: "new-mf-1" }, error: null });
+    const previewFileChain = makeChain({
+      data: { id: "new-pf-1" },
+      error: null,
+    });
+    const updateChain = makeChain({ data: null, error: null });
+    const db = {
+      from: vi
+        .fn()
+        .mockReturnValueOnce(sourceChain)
+        .mockReturnValueOnce(assetChain)
+        .mockReturnValueOnce(modelFileChain)
+        .mockReturnValueOnce(previewFileChain)
+        .mockReturnValueOnce(updateChain),
     } as unknown as Db;
     const result = await copyAssetToLibrary(db, userId, sourceAssetId);
     expect(result.error).toBeNull();

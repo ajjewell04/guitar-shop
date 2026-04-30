@@ -174,9 +174,11 @@ export default function ProceduralNeckMesh({
     onHeadstockStateRef.current?.(state);
   }, []);
 
+  const paramsKey = JSON.stringify(params);
   const neckObject = useMemo(
     () => buildProceduralNeckMesh(params),
-    [JSON.stringify(params)],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [paramsKey], // deep-equality guard: skip mesh rebuild when only the reference changes
   );
 
   const onHeadstockReady = useCallback(() => {

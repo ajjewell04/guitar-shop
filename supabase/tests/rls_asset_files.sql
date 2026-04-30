@@ -7,7 +7,7 @@
 --   insert/update/delete → authenticated owner only
 
 begin;
-select plan(16);
+select plan(19);
 
 -- ── fixtures ────────────────────────────────────────────────────────────────
 
@@ -71,6 +71,28 @@ select is(
   0,
   'anon cannot see project preview files (asset_id IS NULL)'
 );
+
+-- ── anon write rejections ─────────────────────────────────────────────────────
+
+set local role anon;
+select set_config('request.jwt.claims', '{}', true);
+
+select throws_ok(
+  $$insert into public.asset_files (owner_id, asset_id, bucket) values ('a0000000-0000-0000-0000-000000000001', 'a1000000-0000-0000-0000-000000000001', 'test-bucket')$$,
+  '42501', NULL, 'anon cannot insert into asset_files'
+);
+
+select throws_ok(
+  $$update public.asset_files set filename = 'hacked.glb' where id = 'a2000000-0000-0000-0000-000000000001'$$,
+  '42501', NULL, 'anon cannot update asset_files'
+);
+
+select throws_ok(
+  $$delete from public.asset_files where id = 'a2000000-0000-0000-0000-000000000001'$$,
+  '42501', NULL, 'anon cannot delete from asset_files'
+);
+
+reset role;
 
 -- ── SELECT: authenticated non-owner (user_b) ─────────────────────────────────
 
