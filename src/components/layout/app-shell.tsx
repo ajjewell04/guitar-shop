@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useState } from "react";
+import { useRouter } from "next/navigation";
 import Sidebar from "@/components/layout/sidebar";
 import WorkView from "@/components/layout/workview";
 import { NewProjectForm } from "@/components/projects/new-project-form";
@@ -12,6 +13,7 @@ type AppShellProps = {
 };
 
 export function AppShell({ children, initialUser }: AppShellProps) {
+  const router = useRouter();
   const [isNewProjectOpen, setIsNewProjectOpen] = useState(false);
   const [isNewAssetOpen, setIsNewAssetOpen] = useState(false);
 
@@ -51,7 +53,12 @@ export function AppShell({ children, initialUser }: AppShellProps) {
           onClick={() => setIsNewAssetOpen(false)}
         >
           <div className="w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
-            <NewAssetForm onSuccess={() => setIsNewAssetOpen(false)} />
+            <NewAssetForm
+              onSuccess={(assetId) => {
+                setIsNewAssetOpen(false);
+                router.push(`/library/${assetId}/configure-mounting`);
+              }}
+            />
           </div>
         </div>
       )}

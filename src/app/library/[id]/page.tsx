@@ -29,6 +29,7 @@ export default async function UserLibraryPage({ params }: PageProps) {
       name,
       owner_id,
       part_type,
+      meta,
       upload_date,
       upload_status,
       preview_file:asset_files!assets_preview_file_id_fkey (
@@ -42,7 +43,18 @@ export default async function UserLibraryPage({ params }: PageProps) {
     .eq("owner_id", id)
     .order("upload_date", { ascending: false });
 
-  const initialAssets = await Promise.all((data ?? []).map(mapLibraryAssetRow));
+  const rows = data ?? [];
+  const mappedAssets = await Promise.all(rows.map(mapLibraryAssetRow));
+  const initialAssets = mappedAssets.map((asset, i) => {
+    const raw = rows[i];
+    const meta =
+      typeof raw?.meta === "object" &&
+      raw.meta !== null &&
+      !Array.isArray(raw.meta)
+        ? (raw.meta as Record<string, unknown>)
+        : null;
+    return { ...asset, hasMounting: meta !== null && "guitar" in meta };
+  });
 
   return (
     <Suspense

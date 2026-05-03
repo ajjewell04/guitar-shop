@@ -3,6 +3,7 @@
 import { cn } from "@/lib/utils";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { renderModelPreview } from "@/lib/preview/model";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -13,6 +14,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { MOUNTABLE_PART_TYPES } from "@/components/asset-mounting-wizard/flows";
 
 type ApprovedAssetRow = {
   id: string;
@@ -23,6 +25,7 @@ type ApprovedAssetRow = {
   upload_status: string | null;
   previewUrl: string | null;
   modelUrl: string | null;
+  hasMounting?: boolean;
 };
 
 type CommunityLibraryViewProps = React.ComponentPropsWithoutRef<"div"> & {
@@ -248,16 +251,33 @@ export default function CommunityLibraryView({
                           : "Add to My Library"}
                       </Button>
                     ) : (
-                      <Button
-                        variant="outline"
-                        className="cursor-pointer border-red-600 text-red-600"
-                        onClick={() => void deleteFromLibrary(asset.id)}
-                        disabled={deletingAssetId === asset.id}
-                      >
-                        {deletingAssetId === asset.id
-                          ? "Deleting..."
-                          : "Delete"}
-                      </Button>
+                      <div className="flex flex-col items-end gap-2">
+                        <Button
+                          variant="outline"
+                          className="cursor-pointer border-red-600 text-red-600"
+                          onClick={() => void deleteFromLibrary(asset.id)}
+                          disabled={deletingAssetId === asset.id}
+                        >
+                          {deletingAssetId === asset.id
+                            ? "Deleting..."
+                            : "Delete"}
+                        </Button>
+                        {asset.part_type &&
+                          MOUNTABLE_PART_TYPES.has(asset.part_type) && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="cursor-pointer"
+                              asChild
+                            >
+                              <Link
+                                href={`/library/${asset.id}/configure-mounting`}
+                              >
+                                Configure mounting
+                              </Link>
+                            </Button>
+                          )}
+                      </div>
                     )}
                   </div>
                 </CardHeader>
@@ -282,6 +302,15 @@ export default function CommunityLibraryView({
                       <CardDescription className="capitalize">
                         {asset.part_type?.replace("_", " ")}
                       </CardDescription>
+                      {!isCommunityView &&
+                        asset.part_type &&
+                        MOUNTABLE_PART_TYPES.has(asset.part_type) && (
+                          <div className="mt-1 text-xs text-muted-foreground">
+                            {asset.hasMounting
+                              ? "Configured ✓"
+                              : "Not configured"}
+                          </div>
+                        )}
                       <div className="mt-3 text-sm text-muted-foreground">
                         Uploaded on{" "}
                         {asset.upload_date

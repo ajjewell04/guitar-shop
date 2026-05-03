@@ -22,7 +22,7 @@ import {
 import React, { useState } from "react";
 
 type NewAssetFormProps = React.ComponentPropsWithoutRef<"div"> & {
-  onSuccess?: () => void;
+  onSuccess?: (assetId: string) => void;
 };
 
 type PresignResponse = {
@@ -132,7 +132,7 @@ export function NewAssetForm({
       }
 
       window.dispatchEvent(new Event("assets-changed"));
-      onSuccess?.();
+      onSuccess?.(finalize.assetId);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Asset create failed");
     } finally {
